@@ -7,5 +7,7 @@ set(CXX_STANDARD_REQUIRED true)
 add_subdirectory(external/engine)
 
 add_executable(${PROJECT_NAME} source/game.cpp)
-target_link_libraries(${PROJECT_NAME} gameEngine2D)
+
 target_include_directories(${PROJECT_NAME} PRIVATE gameEngine2D)
+target_link_libraries(${PROJECT_NAME} gameEngine2D)
+

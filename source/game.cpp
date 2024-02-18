@@ -1,4 +1,5 @@
-#include <engine.h>
+#include <Engine.h>
+#undef main
 
 int main()
 {
