@@ -1,5 +1,8 @@
 #include <Engine.h>
 
+Engine* Engine::sInstance = nullptr;
+
+
 bool Engine::Initialize(std::string title, const unsigned int& width, const unsigned int& height)
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
@@ -45,7 +48,17 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
     return true;
 }
 
-void Engine::Printf()
+Engine* Engine::Get()
 {
-    std::cout << "a" << '\n';
+    return sInstance = (sInstance != nullptr) ? sInstance : new Engine();
+}
+
+Timer* Engine::GetTimer()
+{
+    return &EngineTimer;
+}
+
+void printff()
+{
+    printf("AAAAAAA");
 }

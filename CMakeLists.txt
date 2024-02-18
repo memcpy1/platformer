@@ -9,5 +9,6 @@ add_subdirectory(external/engine)
 add_executable(${PROJECT_NAME} source/game.cpp)
 
 target_include_directories(${PROJECT_NAME} PRIVATE gameEngine2D)
+target_link_directories(${PROJECT_NAME} PRIVATE build/external/engine/Debug)
 target_link_libraries(${PROJECT_NAME} gameEngine2D)
 

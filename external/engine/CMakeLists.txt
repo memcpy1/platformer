@@ -10,8 +10,9 @@ add_subdirectory(external/SDL_image)
 add_subdirectory(external/SDL_mixer)
 add_subdirectory(external/SDL_ttf)
 
-add_library(${PROJECT_NAME} SHARED
+add_library(${PROJECT_NAME} STATIC
         source/engine.cpp include/Engine.h
+        source/timer.cpp  include/Timer.h
 )
 target_include_directories( ${PROJECT_NAME} 
     PUBLIC
