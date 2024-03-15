@@ -5,9 +5,9 @@ Engine* Engine::sInstance = nullptr;
 
 bool Engine::Initialize(std::string title, const unsigned int& width, const unsigned int& height)
 {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
+    if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
     {
-        std::cout << "[SDL2]: Initalization failed   : " << SDL_GetError() << '\n';
+        std::cout << "[SDL2]: SDL_Init() failed   : " << SDL_GetError() << '\n';
         return false;
     }
     if (!(IMG_Init(IMG_INIT_PNG)))
@@ -20,31 +20,43 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
         std::cout << "[SDL_TTF]: TTF_Init() failed   : " << TTF_GetError() << std::endl;
         return false;
     }
-    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) == -1)
+    if (Mix_Init(MIX_INIT_OGG) && Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) == -1)
     {
-        std::cout << "[SDL_mixer]: Mix_OpenAudio() failed   : " << Mix_GetError() << std::endl;
+        std::cout << "[SDL_mixer]: Mix_Init() failed   : " << Mix_GetError() << std::endl;
         return false;
     }
 
     Window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
     if (!Window)
     {
-        __debugbreak();
-        std::cout << "[SDL_CreateWindow]: Could not create window   : " << SDL_GetError() << std::endl;
+        std::cout << "[SDL_CreateWindow]: Could not create window.   : " << SDL_GetError() << std::endl;
         return false;
     }
 
-    
     Renderer = SDL_CreateRenderer(Window, -1, SDL_RENDERER_ACCELERATED || SDL_RENDERER_PRESENTVSYNC);
     if (!Renderer)
     {
-        std::cout << "[SDL2]: Renderer creation failed!   : " << SDL_GetError() << std::endl;
+        std::cout << "[SDL2]: Could not create renderer.   : " << SDL_GetError() << std::endl;
         return false;
     }
+
+    EngineTimer.Start();
 
     Width = width;
     Height = height;
     
+    CurrentTick = SDL_GetPerformanceCounter();
+    LastTick = 0;
+
+    PhysicsSystem = new PhysicsWorld(1.0f / 60.0f, 0.3f);
+
+    PhysicsDebugger.SetFlags(b2Draw::e_shapeBit);
+    PhysicsSystem->World->SetDebugDraw(&PhysicsDebugger);
+
+    RegisterSolid(b2Vec2(0, -4), b2Vec2(14.2f, 0.5f));
+    RegisterActor(b2Vec2(1.2f, 4), b2Vec2(0.5f, 0.5f), 0, 12, 1, 0.1f);
+    
+
     return true;
 }
 
@@ -53,12 +65,172 @@ Engine* Engine::Get()
     return sInstance = (sInstance != nullptr) ? sInstance : new Engine();
 }
 
-Timer* Engine::GetTimer()
+SDLTimer* Engine::GetTimer()
 {
     return &EngineTimer;
 }
 
-void printff()
+SDL_Renderer* Engine::GetRenderer()
 {
-    printf("AAAAAAA");
+    return Renderer;
+}
+
+std::size_t Engine::GetMaxEntity()
+{
+    return EngineSystem.MaxEntities;
+}
+
+SDL_Surface* Engine::GetWindowSurface()
+{
+    return SDL_GetWindowSurface(Window);
+}
+
+void Engine::Update()
+{
+    LastTick = CurrentTick;
+    CurrentTick = SDL_GetPerformanceCounter();
+    float Dt = (float)((CurrentTick - LastTick) * 10 / (float)SDL_GetPerformanceFrequency());
+    FPS = FrameCount / (EngineTimer.GetTicks() / 1000.0f);
+    
+    PhysicsSystem->Update(Dt, EngineRegistry);
+    
+
+
+    
+
+    std::cout << FPS << '\n';
+    FrameCount++;
+}
+
+
+std::size_t Engine::RegisterSolid(const b2Vec2& position, const b2Vec2& dimensions)
+{
+    //Box2D Initialization
+    std::size_t Solid = EngineSystem.CreateEntity();
+
+    b2BodyDef defSolid;
+    defSolid.type = b2_staticBody;
+    defSolid.position.Set(position.x, position.y);
+
+    b2PolygonShape shapeSolid;
+    shapeSolid.SetAsBox(dimensions.x / 2, dimensions.y / 2);
+
+    b2Body* bodySolid = PhysicsSystem->World->CreateBody(&defSolid);
+
+    bodySolid->CreateFixture(&shapeSolid, 0.0f);
+
+    //Body enters the Registry
+    EngineRegistry.regPhysics[Solid].Solid.Body = bodySolid;
+    EngineRegistry.regPhysics[Solid].isActor = false;
+    
+    return Solid;
+}
+
+std::size_t Engine::RegisterActor(const b2Vec2& position, const b2Vec2& dimensions, const bool& kinematic, 
+const float& angle, const float& density, const float& frictionCoeff)
+{
+    std::size_t Actor = EngineSystem.CreateEntity();
+    b2BodyDef defActor;
+    if (kinematic)
+        defActor.type = b2_kinematicBody;
+    else   
+        defActor.type = b2_dynamicBody; 
+    defActor.allowSleep = false;
+    defActor.angle = angle;
+    defActor.position.Set(position.x, position.y);
+
+    b2PolygonShape shapeActor;
+    shapeActor.SetAsBox(dimensions.x / 2, dimensions.y / 2);
+
+    b2Body* bodyActor = PhysicsSystem->World->CreateBody(&defActor);
+
+    b2FixtureDef fixtActor;
+    fixtActor.shape = &shapeActor;
+    
+    fixtActor.density = density;
+    fixtActor.friction = frictionCoeff;
+
+    GameActor DynamicActor;
+    DynamicActor.Body = bodyActor;
+    DynamicActor.PreviousPosition = b2Vec2(position.x, position.y);
+
+    fixtActor.userData.pointer = (uintptr_t)&DynamicActor;
+    
+    bodyActor->CreateFixture(&fixtActor);
+
+    EngineRegistry.regPhysics[Actor].Actor.Body = bodyActor;
+    EngineRegistry.regPhysics[Actor].isActor = true;
+    return Actor;
+}
+
+std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensions)
+{
+    std::size_t Player = EngineSystem.CreateEntity();
+    b2BodyDef defPlayer;
+    defPlayer.type = b2_kinematicBody;
+    defPlayer.fixedRotation = true;
+    defPlayer.position.Set(position.x, position.y);
+
+    b2Body* bodyPlayer = PhysicsSystem->World->CreateBody(&defPlayer);
+
+    GameActor PlayerActor;
+    PlayerActor.Body = bodyPlayer;
+    PlayerActor.PreviousPosition = b2Vec2(position.x, position.y);
+
+    b2PolygonShape shapePlayer;
+    shapePlayer.SetAsBox(dimensions.x, dimensions.y);
+
+    b2FixtureDef fixtPlayer;
+    fixtPlayer.shape = &shapePlayer;
+    fixtPlayer.density = 0;
+    fixtPlayer.userData.pointer = (uintptr_t)&PlayerActor;
+
+    bodyPlayer->CreateFixture(&fixtPlayer);
+
+    EngineRegistry.regPhysics[Player].Actor.Body = bodyPlayer;
+    EngineRegistry.regPhysics[Player].isActor = true;
+
+    return Player;
+}
+
+//void PollEvents();
+void Engine::Render()
+{   
+    SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 0xFF);
+    SDL_RenderClear(Renderer);
+    PhysicsDebugger.DrawGridline(40);
+    PhysicsDebugger.DrawCartesianAxis();
+    PhysicsSystem->World->DebugDraw();
+    SDL_RenderPresent(Renderer);
+}
+
+
+b2Vec2 Engine::SDLBox2D(const b2Vec2& vec2)
+{
+   return b2Vec2(vec2.x / 80 - 8, vec2.y / 80 - 4.5f);
+}
+
+b2Vec2 Engine::Box2DSDL(const b2Vec2& vec2)
+{	
+   return b2Vec2((vec2.x + 8) * 80, (vec2.y + 4.5f) * 80);
+}
+
+float Engine::Box2DSDLf(const float& f)
+{	
+   return f * 80;
+}
+
+float Engine::SDLBox2Df(const float& f)
+{	
+   return f / 80;
+}
+
+void Engine::Quit()
+{
+    Running = 0;
+}
+
+bool Engine::IsRunning()
+{
+    return Running;
 }

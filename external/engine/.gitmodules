@@ -14,3 +14,6 @@
 	path = external/SDL_ttf
 	url = https://github.com/libsdl-org/SDL_ttf
 	branch = release-2.20.x
+[submodule "external/Box2D"]
+	path = external/Box2D
+	url = https://github.com/erincatto/box2d

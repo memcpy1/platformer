@@ -3,26 +3,30 @@
 #include <chrono>
 #include <ctime>
 #include <iostream>
+//SDL
+#include <SDL.h>
 
-class Timer
+class SDLTimer
 {
 private:
-	std::chrono::time_point<std::chrono::steady_clock> StartTicks;
-	std::chrono::time_point<std::chrono::steady_clock> LastTick;
-    std::chrono::steady_clock::duration PauseTicks;
+	uint32_t StartTicks;
+	uint32_t PauseTicks;
+	
+	uint32_t LastTick;
+	uint32_t CurrentTick;
 
 	bool Started;
     bool Paused;
 	bool Running;
 public:
-	Timer()
-		: StartTicks({}), PauseTicks({}), Started(0), Paused(0), Running(0) {}
+	SDLTimer()
+		: StartTicks(0), PauseTicks(0), LastTick(0), CurrentTick(SDL_GetTicks()),
+	Started(0), Paused(0), Running(0) {}
 
 	void Start();
 	void Pause();	
 	void Stop();
 
-	bool IsPaused();
 	bool IsActive();
-	uint32_t GetMilliseconds();
+	uint32_t GetTicks();
 };

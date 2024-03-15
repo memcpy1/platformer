@@ -6,27 +6,24 @@ int main()
 {
     Engine::Get()->Initialize("game", 1280, 720);
     
-    bool running = 1;
+
     SDL_Event sdl;
     
-    while (running)
+    while (Engine::Get()->IsRunning())
     {
         while (SDL_PollEvent(&sdl) != 0)
         {
-            switch (sdl.type)
+            switch(sdl.type)
             {
-                case SDL_QUIT:
-                    running = 0;
-                break;
                 case SDL_KEYDOWN:
-                    Engine::Get()->GetTimer()->Start();
-                break;
-                case SDL_MOUSEBUTTONDOWN:
                     Engine::Get()->GetTimer()->Pause();
+                case SDL_QUIT:
+                    Engine::Get()->Quit();
                 break;
             }
         }
-
-        std::cout << Engine::Get()->GetTimer()->GetMilliseconds() << '\n';
+        
+        Engine::Get()->Update();
+        Engine::Get()->Render();
     }
 } 

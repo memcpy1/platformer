@@ -9,10 +9,16 @@ add_subdirectory(external/SDL)
 add_subdirectory(external/SDL_image)
 add_subdirectory(external/SDL_mixer)
 add_subdirectory(external/SDL_ttf)
+add_subdirectory(external/Box2D)
 
 add_library(${PROJECT_NAME} STATIC
-        source/engine.cpp include/Engine.h
-        source/timer.cpp  include/Timer.h
+        source/engine.cpp       include/Engine.h
+        source/timer.cpp        include/Timer.h
+        source/physics.cpp      include/Physics.h
+        source/ecs.cpp          include/ECS.h
+        source/debug.cpp        include/Debug.h
+
+        source/vendor/SDL_Primitives/SDL_Prims.cpp  include/vendor/SDL_Primitives/SDL_prims.h
 )
 target_include_directories( ${PROJECT_NAME} 
     PUBLIC
@@ -23,6 +29,7 @@ target_include_directories( ${PROJECT_NAME}
         external/SDL_image/include
         external/SDL_mixer/include
         external/SDL_ttf
+        external/Box2D/include
 )
 
 target_link_libraries( ${PROJECT_NAME}
@@ -31,4 +38,5 @@ target_link_libraries( ${PROJECT_NAME}
         SDL2_image::SDL2_image
         SDL2_mixer::SDL2_mixer
         SDL2_ttf::SDL2_ttf
+        box2d
 )

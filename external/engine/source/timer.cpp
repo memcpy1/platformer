@@ -1,61 +1,57 @@
 #include <Timer.h>
 
-void Timer::Start()
+void SDLTimer::Start()
 {
 	Started = true;
+	Running = true;
 
-	StartTicks = std::chrono::steady_clock::now();
-	PauseTicks = {};
+	StartTicks = SDL_GetTicks();
+	PauseTicks = 0;
 }
 
 
-void Timer::Pause()
+void SDLTimer::Pause()
 {
 	if (Started && !Paused)
 	{
 		Running = false;
         Paused = true;
-		PauseTicks = std::chrono::steady_clock::now() - StartTicks;
-		StartTicks = {};
+		PauseTicks = SDL_GetTicks() - StartTicks;
+		StartTicks = 0;
 	}
     else
     {
         Paused = false;
         Running = true;
-		StartTicks = std::chrono::steady_clock::now() - PauseTicks;
-		PauseTicks = {};
+		StartTicks = SDL_GetTicks() - PauseTicks;
+		PauseTicks = 0;
     }
 }
 
-void Timer::Stop()
+void SDLTimer::Stop()
 {
 	Started = false;
 	Paused = false;
 
-	StartTicks = {};
-	PauseTicks = {};
+	StartTicks = 0;
+	PauseTicks = 0;
 }
 
-
-bool Timer::IsPaused()
+bool SDLTimer::IsActive()
 {
-	return Paused && Started;
+	return Started && Running;
 }
 
-bool Timer::IsActive()
-{
-	return Started;
-}
-
-uint32_t Timer::GetMilliseconds()
+uint32_t SDLTimer::GetTicks()
 {
 	if (Started)
 	{
 		if (Running)
-            return std::chrono::duration_cast<std::chrono::milliseconds>
-            (std::chrono::steady_clock::now() - StartTicks).count();
+		{
+			return SDL_GetTicks() - StartTicks;
+		}
 		else
-			return std::chrono::duration_cast<std::chrono::milliseconds>(PauseTicks).count();
+			return PauseTicks;
 	}
 	else
 		return 0;
