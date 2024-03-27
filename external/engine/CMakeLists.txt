@@ -17,6 +17,7 @@ add_library(${PROJECT_NAME} STATIC
         source/physics.cpp      include/Physics.h
         source/ecs.cpp          include/ECS.h
         source/debug.cpp        include/Debug.h
+        source/event.cpp        include/Event.h
 
         source/vendor/SDL_Primitives/SDL_Prims.cpp  include/vendor/SDL_Primitives/SDL_prims.h
 )

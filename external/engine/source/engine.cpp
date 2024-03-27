@@ -55,6 +55,8 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
 
     RegisterSolid(b2Vec2(0, -4), b2Vec2(14.2f, 0.5f));
     RegisterActor(b2Vec2(1.2f, 4), b2Vec2(0.5f, 0.5f), 0, 12, 1, 0.1f);
+
+    Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.8f));
     
 
     return true;
@@ -92,13 +94,14 @@ void Engine::Update()
     float Dt = (float)((CurrentTick - LastTick) * 10 / (float)SDL_GetPerformanceFrequency());
     FPS = FrameCount / (EngineTimer.GetTicks() / 1000.0f);
     
+    PlayerSystem.Update(Player, EngineRegistry);
     PhysicsSystem->Update(Dt, EngineRegistry);
     
 
 
     
 
-    std::cout << FPS << '\n';
+
     FrameCount++;
 }
 
@@ -178,7 +181,7 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
     PlayerActor.PreviousPosition = b2Vec2(position.x, position.y);
 
     b2PolygonShape shapePlayer;
-    shapePlayer.SetAsBox(dimensions.x, dimensions.y);
+    shapePlayer.SetAsBox(dimensions.x / 2, dimensions.y / 2);
 
     b2FixtureDef fixtPlayer;
     fixtPlayer.shape = &shapePlayer;
@@ -190,10 +193,16 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
     EngineRegistry.regPhysics[Player].Actor.Body = bodyPlayer;
     EngineRegistry.regPhysics[Player].isActor = true;
 
+    EngineRegistry.regPlayer[Player].GroundCheck = b2RayCastInput();
+
     return Player;
 }
 
-//void PollEvents();
+void Engine::PollEvents()
+{
+    KeyboardInput.Poll();
+}
+
 void Engine::Render()
 {   
     SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 0xFF);

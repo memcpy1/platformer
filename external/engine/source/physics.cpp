@@ -18,8 +18,7 @@ void PhysicsWorld::Update(float& Dt, Registry& reg)
     
     TimestepAccumulator += Dt;
     while (TimestepAccumulator >= Dt)
-    {
-            
+    {    
         World->Step(Dt, VelocityIterations, PositionIterations);
         TimestepAccumulator -= Dt;
     }

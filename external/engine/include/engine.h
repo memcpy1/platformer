@@ -11,6 +11,8 @@
 #include "Timer.h"
 #include "Physics.h"
 #include "Debug.h"
+#include "Event.h"
+#include "ECS.h"
 //#include "Globals.h"
 //box2D
 #include <box2d/b2_polygon_shape.h>
@@ -25,9 +27,13 @@ private:
     
     Registry EngineRegistry;
     System EngineSystem;
-    
+    System::Player PlayerSystem;
+    EventHandler KeyboardInput;
+
     PhysicsWorld* PhysicsSystem;
     float Gravity;
+
+    std::size_t Player;
 
     DebugDrawSDL PhysicsDebugger;
 
@@ -76,4 +82,6 @@ public:
 private:
     Engine() 
         : PhysicsSystem(new PhysicsWorld(1.0f / FPS, Gravity)){};
+
+    friend System::Player;
 };
