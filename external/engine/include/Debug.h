@@ -26,9 +26,7 @@ public:
 	virtual void DrawPoint(const b2Vec2& p, float size, const b2Color& color);
 
 	b2Vec2 Box2DtoSDLCoords(const b2Vec2& pVertices);
-	void Box2DtoSDLCoordsPrint(const b2Vec2& pVertices);
 	b2Vec2 SDLtoBox2DCoords(const b2Vec2& vec2);
-	void SDLtoBox2DCoordsPrint(const b2Vec2& pVertices);
 	float Box2DtoSDLCoordsf(const float& f);
 
 	void DrawGridline(const int& pGridSize);

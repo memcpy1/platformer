@@ -9,11 +9,9 @@
 #include <SDL_ttf.h>
 //Engine
 #include "Timer.h"
-#include "Physics.h"
 #include "Debug.h"
 #include "Event.h"
 #include "ECS.h"
-//#include "Globals.h"
 //box2D
 #include <box2d/b2_polygon_shape.h>
 #include <box2d/b2_fixture.h>
@@ -28,9 +26,12 @@ private:
     Registry EngineRegistry;
     System EngineSystem;
     System::Player PlayerSystem;
+    System::Physics PhysicsSystem;
+    System::Actor ActorSystem;
+    System::Solid SolidSystem;
+    
     EventHandler KeyboardInput;
 
-    PhysicsWorld* PhysicsSystem;
     float Gravity;
 
     std::size_t Player;
@@ -65,6 +66,7 @@ public:
     void ToggleVisualDebugging();
 
     bool IsRunning();
+
     SDLTimer* GetTimer();
     SDL_Renderer* GetRenderer();
     SDL_Surface* GetWindowSurface();
@@ -81,7 +83,7 @@ public:
     std::size_t GetMaxEntity();
 private:
     Engine() 
-        : PhysicsSystem(new PhysicsWorld(1.0f / FPS, Gravity)){};
+        : PhysicsSystem(System::Physics(1 / 60.0f, 0.673f)) {}
 
     friend System::Player;
 };

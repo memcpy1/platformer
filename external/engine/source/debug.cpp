@@ -18,15 +18,6 @@ b2Vec2 DebugDrawSDL::Box2DtoSDLCoords(const b2Vec2& vec2)
    return b2Vec2((vec2.x + 8) * 80, -((vec2.y - 4.5f) * 80));
 }
 
-void DebugDrawSDL::SDLtoBox2DCoordsPrint(const b2Vec2& vec2)
-{
-   std::cout << SDLtoBox2DCoords(vec2).x << " | " << SDLtoBox2DCoords(vec2).y << "\n";
-}
-
-void DebugDrawSDL::Box2DtoSDLCoordsPrint(const b2Vec2& vec2)
-{
-   std::cout << Box2DtoSDLCoords(vec2).x << " | " << Box2DtoSDLCoords(vec2).y << "\n";
-}
 
 void DebugDrawSDL::DrawPoint(const b2Vec2& pPosition, float pRadius, const b2Color& pColor)
 {

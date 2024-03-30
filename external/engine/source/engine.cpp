@@ -1,5 +1,6 @@
 #include <Engine.h>
 
+
 Engine* Engine::sInstance = nullptr;
 
 
@@ -48,10 +49,8 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
     CurrentTick = SDL_GetPerformanceCounter();
     LastTick = 0;
 
-    PhysicsSystem = new PhysicsWorld(1.0f / 60.0f, 0.3f);
-
-    PhysicsDebugger.SetFlags(b2Draw::e_shapeBit);
-    PhysicsSystem->World->SetDebugDraw(&PhysicsDebugger);
+    PhysicsDebugger.SetFlags(b2Draw::e_shapeBit + b2Draw::e_aabbBit);
+    PhysicsSystem.GetWorld()->SetDebugDraw(&PhysicsDebugger);
 
     RegisterSolid(b2Vec2(0, -4), b2Vec2(14.2f, 0.5f));
     RegisterActor(b2Vec2(1.2f, 4), b2Vec2(0.5f, 0.5f), 0, 12, 1, 0.1f);
@@ -91,40 +90,46 @@ void Engine::Update()
 {
     LastTick = CurrentTick;
     CurrentTick = SDL_GetPerformanceCounter();
+    
     float Dt = (float)((CurrentTick - LastTick) * 10 / (float)SDL_GetPerformanceFrequency());
+    
     FPS = FrameCount / (EngineTimer.GetTicks() / 1000.0f);
     
-    PlayerSystem.Update(Player, EngineRegistry);
-    PhysicsSystem->Update(Dt, EngineRegistry);
-    
-
+    PlayerSystem.Update(Player, EngineRegistry, 0);
+    PhysicsSystem.Update(Dt, EngineRegistry);
 
     
+
 
 
     FrameCount++;
 }
 
-
 std::size_t Engine::RegisterSolid(const b2Vec2& position, const b2Vec2& dimensions)
 {
     //Box2D Initialization
     std::size_t Solid = EngineSystem.CreateEntity();
+    ActorData UserData;
+    UserData.ECS_ID = Solid;
 
     b2BodyDef defSolid;
     defSolid.type = b2_staticBody;
     defSolid.position.Set(position.x, position.y);
+    defSolid.userData = UserData;
 
     b2PolygonShape shapeSolid;
     shapeSolid.SetAsBox(dimensions.x / 2, dimensions.y / 2);
 
-    b2Body* bodySolid = PhysicsSystem->World->CreateBody(&defSolid);
+    b2Body* bodySolid = PhysicsSystem.World->CreateBody(&defSolid);
+
+    b2FixtureDef fixtSolid;
+    fixtSolid.shape = &shapeSolid;
+    fixtSolid.density = 0;
 
     bodySolid->CreateFixture(&shapeSolid, 0.0f);
-
+    
     //Body enters the Registry
-    EngineRegistry.regPhysics[Solid].Solid.Body = bodySolid;
-    EngineRegistry.regPhysics[Solid].isActor = false;
+    EngineRegistry.regSolid[Solid].body = bodySolid;
     
     return Solid;
 }
@@ -145,24 +150,19 @@ const float& angle, const float& density, const float& frictionCoeff)
     b2PolygonShape shapeActor;
     shapeActor.SetAsBox(dimensions.x / 2, dimensions.y / 2);
 
-    b2Body* bodyActor = PhysicsSystem->World->CreateBody(&defActor);
+    b2Body* bodyActor = PhysicsSystem.World->CreateBody(&defActor);
 
     b2FixtureDef fixtActor;
     fixtActor.shape = &shapeActor;
     
     fixtActor.density = density;
     fixtActor.friction = frictionCoeff;
-
-    GameActor DynamicActor;
-    DynamicActor.Body = bodyActor;
-    DynamicActor.PreviousPosition = b2Vec2(position.x, position.y);
-
-    fixtActor.userData.pointer = (uintptr_t)&DynamicActor;
     
     bodyActor->CreateFixture(&fixtActor);
 
-    EngineRegistry.regPhysics[Actor].Actor.Body = bodyActor;
-    EngineRegistry.regPhysics[Actor].isActor = true;
+    EngineRegistry.regActor[Actor].body = bodyActor;
+    EngineRegistry.regActor[Actor].PreviousPosition = b2Vec2(position.x, position.y);
+    
     return Actor;
 }
 
@@ -174,11 +174,7 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
     defPlayer.fixedRotation = true;
     defPlayer.position.Set(position.x, position.y);
 
-    b2Body* bodyPlayer = PhysicsSystem->World->CreateBody(&defPlayer);
-
-    GameActor PlayerActor;
-    PlayerActor.Body = bodyPlayer;
-    PlayerActor.PreviousPosition = b2Vec2(position.x, position.y);
+    b2Body* bodyPlayer = PhysicsSystem.World->CreateBody(&defPlayer);
 
     b2PolygonShape shapePlayer;
     shapePlayer.SetAsBox(dimensions.x / 2, dimensions.y / 2);
@@ -186,14 +182,13 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
     b2FixtureDef fixtPlayer;
     fixtPlayer.shape = &shapePlayer;
     fixtPlayer.density = 0;
-    fixtPlayer.userData.pointer = (uintptr_t)&PlayerActor;
 
     bodyPlayer->CreateFixture(&fixtPlayer);
 
-    EngineRegistry.regPhysics[Player].Actor.Body = bodyPlayer;
-    EngineRegistry.regPhysics[Player].isActor = true;
-
+    EngineRegistry.regActor[Player].body = bodyPlayer;
+    EngineRegistry.regActor[Player].PreviousPosition = b2Vec2(position.x, position.y);
     EngineRegistry.regPlayer[Player].GroundCheck = b2RayCastInput();
+    EngineRegistry.regPlayer[Player].MoveState = PlayerMoveX::STOP;
 
     return Player;
 }
@@ -209,7 +204,7 @@ void Engine::Render()
     SDL_RenderClear(Renderer);
     PhysicsDebugger.DrawGridline(40);
     PhysicsDebugger.DrawCartesianAxis();
-    PhysicsSystem->World->DebugDraw();
+    PhysicsSystem.World->DebugDraw();
     SDL_RenderPresent(Renderer);
 }
 
