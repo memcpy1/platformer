@@ -49,13 +49,17 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
     CurrentTick = SDL_GetPerformanceCounter();
     LastTick = 0;
 
-    PhysicsDebugger.SetFlags(b2Draw::e_shapeBit + b2Draw::e_aabbBit);
+    //Used for collision callbacks
+    collisionListener = CollisionListener();
+    PhysicsSystem.World->SetContactListener(&collisionListener);
+
+    PhysicsDebugger.SetFlags(b2Draw::e_shapeBit);
     PhysicsSystem.GetWorld()->SetDebugDraw(&PhysicsDebugger);
 
     RegisterSolid(b2Vec2(0, -4), b2Vec2(14.2f, 0.5f));
     RegisterActor(b2Vec2(1.2f, 4), b2Vec2(0.5f, 0.5f), 0, 12, 1, 0.1f);
 
-    Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.8f));
+    Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.65f));
     
 
     return true;
@@ -76,14 +80,33 @@ SDL_Renderer* Engine::GetRenderer()
     return Renderer;
 }
 
+EventHandler* Engine::GetEventHandler()
+{
+    return &KeyboardInput;
+}
+
+std::size_t Engine::CreateEntity()
+{
+    static std::size_t Entities;
+    ++Entities;
+
+    MaxEntities = Entities;
+    return Entities;
+}
+
 std::size_t Engine::GetMaxEntity()
 {
-    return EngineSystem.MaxEntities;
+    return MaxEntities;
 }
 
 SDL_Surface* Engine::GetWindowSurface()
 {
     return SDL_GetWindowSurface(Window);
+}
+
+Registry* Engine::GetRegistry()
+{
+    return &EngineRegistry;
 }
 
 void Engine::Update()
@@ -95,11 +118,8 @@ void Engine::Update()
     
     FPS = FrameCount / (EngineTimer.GetTicks() / 1000.0f);
     
-    PlayerSystem.Update(Player, EngineRegistry, 0);
+    PlayerSystem.Update(Player, EngineRegistry, 0, PhysicsSystem.GetWorld(), PhysicsDebugger);
     PhysicsSystem.Update(Dt, EngineRegistry);
-
-    
-
 
 
     FrameCount++;
@@ -108,28 +128,28 @@ void Engine::Update()
 std::size_t Engine::RegisterSolid(const b2Vec2& position, const b2Vec2& dimensions)
 {
     //Box2D Initialization
-    std::size_t Solid = EngineSystem.CreateEntity();
-    ActorData UserData;
-    UserData.ECS_ID = Solid;
+    std::size_t Solid = CreateEntity();
+    UserData SolidData;
+    SolidData.ECS_ID = Solid;
 
     b2BodyDef defSolid;
     defSolid.type = b2_staticBody;
     defSolid.position.Set(position.x, position.y);
-    defSolid.userData = UserData;
+
+    b2Body* bodySolid = PhysicsSystem.World->CreateBody(&defSolid);
 
     b2PolygonShape shapeSolid;
     shapeSolid.SetAsBox(dimensions.x / 2, dimensions.y / 2);
 
-    b2Body* bodySolid = PhysicsSystem.World->CreateBody(&defSolid);
-
     b2FixtureDef fixtSolid;
     fixtSolid.shape = &shapeSolid;
     fixtSolid.density = 0;
+    fixtSolid.userData = SolidData;
 
     bodySolid->CreateFixture(&shapeSolid, 0.0f);
     
     //Body enters the Registry
-    EngineRegistry.regSolid[Solid].body = bodySolid;
+    EngineRegistry.regPhysics[Solid].body = bodySolid;
     
     return Solid;
 }
@@ -137,7 +157,10 @@ std::size_t Engine::RegisterSolid(const b2Vec2& position, const b2Vec2& dimensio
 std::size_t Engine::RegisterActor(const b2Vec2& position, const b2Vec2& dimensions, const bool& kinematic, 
 const float& angle, const float& density, const float& frictionCoeff)
 {
-    std::size_t Actor = EngineSystem.CreateEntity();
+    std::size_t Actor = CreateEntity();
+    UserData ActorData;
+    ActorData.ECS_ID = Actor;
+    
     b2BodyDef defActor;
     if (kinematic)
         defActor.type = b2_kinematicBody;
@@ -154,13 +177,14 @@ const float& angle, const float& density, const float& frictionCoeff)
 
     b2FixtureDef fixtActor;
     fixtActor.shape = &shapeActor;
+    fixtActor.userData = ActorData;
     
     fixtActor.density = density;
     fixtActor.friction = frictionCoeff;
     
     bodyActor->CreateFixture(&fixtActor);
 
-    EngineRegistry.regActor[Actor].body = bodyActor;
+    EngineRegistry.regPhysics[Actor].body = bodyActor;
     EngineRegistry.regActor[Actor].PreviousPosition = b2Vec2(position.x, position.y);
     
     return Actor;
@@ -168,10 +192,14 @@ const float& angle, const float& density, const float& frictionCoeff)
 
 std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensions)
 {
-    std::size_t Player = EngineSystem.CreateEntity();
+    std::size_t Player = CreateEntity();
+    UserData PlayerData;
+    PlayerData.ECS_ID = Player;
+
     b2BodyDef defPlayer;
-    defPlayer.type = b2_kinematicBody;
+    defPlayer.type = b2_dynamicBody;
     defPlayer.fixedRotation = true;
+    defPlayer.allowSleep = false;
     defPlayer.position.Set(position.x, position.y);
 
     b2Body* bodyPlayer = PhysicsSystem.World->CreateBody(&defPlayer);
@@ -181,14 +209,25 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
 
     b2FixtureDef fixtPlayer;
     fixtPlayer.shape = &shapePlayer;
-    fixtPlayer.density = 0;
+    fixtPlayer.density = 1;
+    fixtPlayer.friction = 0.3f;
+    fixtPlayer.restitution = 0.1f;
+    fixtPlayer.userData = PlayerData;
+
+    b2FixtureDef fixtGroundCheck;
+    shapePlayer.SetAsBox(dimensions.x / 2, 0.3f, b2Vec2(0, -(dimensions.y / 2)), 0);
+    fixtGroundCheck.shape = &shapePlayer;
+    fixtGroundCheck.isSensor = true;
+    PlayerData.GroundCheck = true;
+    fixtGroundCheck.userData = PlayerData;
 
     bodyPlayer->CreateFixture(&fixtPlayer);
+    bodyPlayer->CreateFixture(&fixtGroundCheck);
 
-    EngineRegistry.regActor[Player].body = bodyPlayer;
+    EngineRegistry.regPhysics[Player].body = bodyPlayer;
     EngineRegistry.regActor[Player].PreviousPosition = b2Vec2(position.x, position.y);
-    EngineRegistry.regPlayer[Player].GroundCheck = b2RayCastInput();
     EngineRegistry.regPlayer[Player].MoveState = PlayerMoveX::STOP;
+
 
     return Player;
 }

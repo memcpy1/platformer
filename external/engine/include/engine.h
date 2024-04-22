@@ -12,6 +12,7 @@
 #include "Debug.h"
 #include "Event.h"
 #include "ECS.h"
+#include "Collision.h"
 //box2D
 #include <box2d/b2_polygon_shape.h>
 #include <box2d/b2_fixture.h>
@@ -24,12 +25,12 @@ private:
     static Engine* sInstance;
     
     Registry EngineRegistry;
-    System EngineSystem;
+    std::size_t MaxEntities;
+
     System::Player PlayerSystem;
     System::Physics PhysicsSystem;
-    System::Actor ActorSystem;
-    System::Solid SolidSystem;
-    
+    CollisionListener collisionListener;
+
     EventHandler KeyboardInput;
 
     float Gravity;
@@ -70,6 +71,9 @@ public:
     SDLTimer* GetTimer();
     SDL_Renderer* GetRenderer();
     SDL_Surface* GetWindowSurface();
+    EventHandler* GetEventHandler();
+    
+    Registry* GetRegistry();
 
     b2Vec2 SDLBox2D(const b2Vec2& vec2);
 	b2Vec2 Box2DSDL(const b2Vec2& vec2);
@@ -80,10 +84,9 @@ public:
     std::size_t RegisterSolid(const b2Vec2& position, const b2Vec2& dimensions);
     std::size_t RegisterActor(const b2Vec2& position, const b2Vec2& dimensions, const bool& kinematic, const float& angle, const float& density, const float& frictionCoeff);
     std::size_t RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensions);
+    std::size_t CreateEntity();
     std::size_t GetMaxEntity();
 private:
     Engine() 
-        : PhysicsSystem(System::Physics(1 / 60.0f, 0.673f)) {}
-
-    friend System::Player;
+        : PhysicsSystem(System::Physics(1 / 300.0f, 0.673f)) {}
 };
