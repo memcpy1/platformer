@@ -49,17 +49,18 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
     CurrentTick = SDL_GetPerformanceCounter();
     LastTick = 0;
 
+    PhysicsDebugger.SetFlags(b2Draw::e_shapeBit);
+    PhysicsSystem.GetWorld()->SetDebugDraw(&PhysicsDebugger);
+
     //Used for collision callbacks
     collisionListener = CollisionListener();
     PhysicsSystem.World->SetContactListener(&collisionListener);
-
-    PhysicsDebugger.SetFlags(b2Draw::e_shapeBit);
-    PhysicsSystem.GetWorld()->SetDebugDraw(&PhysicsDebugger);
 
     RegisterSolid(b2Vec2(0, -4), b2Vec2(14.2f, 0.5f));
     RegisterActor(b2Vec2(1.2f, 4), b2Vec2(0.5f, 0.5f), 0, 12, 1, 0.1f);
 
     Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.65f));
+    std::cout << Player << '\n';
     
 
     return true;
@@ -129,8 +130,7 @@ std::size_t Engine::RegisterSolid(const b2Vec2& position, const b2Vec2& dimensio
 {
     //Box2D Initialization
     std::size_t Solid = CreateEntity();
-    UserData SolidData;
-    SolidData.ECS_ID = Solid;
+    EngineRegistry.regUser[Solid].ECS_ID = Solid;
 
     b2BodyDef defSolid;
     defSolid.type = b2_staticBody;
@@ -144,10 +144,10 @@ std::size_t Engine::RegisterSolid(const b2Vec2& position, const b2Vec2& dimensio
     b2FixtureDef fixtSolid;
     fixtSolid.shape = &shapeSolid;
     fixtSolid.density = 0;
-    fixtSolid.userData = SolidData;
+    fixtSolid.userData.pointer = reinterpret_cast<uintptr_t>(&EngineRegistry.regUser[Solid]);
 
-    bodySolid->CreateFixture(&shapeSolid, 0.0f);
-    
+    b2Fixture* SolidFixture = bodySolid->CreateFixture(&fixtSolid);
+        
     //Body enters the Registry
     EngineRegistry.regPhysics[Solid].body = bodySolid;
     
@@ -158,8 +158,8 @@ std::size_t Engine::RegisterActor(const b2Vec2& position, const b2Vec2& dimensio
 const float& angle, const float& density, const float& frictionCoeff)
 {
     std::size_t Actor = CreateEntity();
-    UserData ActorData;
-    ActorData.ECS_ID = Actor;
+    EngineRegistry.regUser[Actor].ECS_ID = Actor;
+
     
     b2BodyDef defActor;
     if (kinematic)
@@ -177,12 +177,12 @@ const float& angle, const float& density, const float& frictionCoeff)
 
     b2FixtureDef fixtActor;
     fixtActor.shape = &shapeActor;
-    fixtActor.userData = ActorData;
+    fixtActor.userData.pointer = reinterpret_cast<uintptr_t>(&EngineRegistry.regUser[Actor]);
     
     fixtActor.density = density;
     fixtActor.friction = frictionCoeff;
     
-    bodyActor->CreateFixture(&fixtActor);
+    b2Fixture* FixtureActor = bodyActor->CreateFixture(&fixtActor);
 
     EngineRegistry.regPhysics[Actor].body = bodyActor;
     EngineRegistry.regActor[Actor].PreviousPosition = b2Vec2(position.x, position.y);
@@ -193,8 +193,8 @@ const float& angle, const float& density, const float& frictionCoeff)
 std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensions)
 {
     std::size_t Player = CreateEntity();
-    UserData PlayerData;
-    PlayerData.ECS_ID = Player;
+    EngineRegistry.regUser[Player].ECS_ID = Player;
+    EngineRegistry.regUser[Player].GroundCheck = true;
 
     b2BodyDef defPlayer;
     defPlayer.type = b2_dynamicBody;
@@ -209,25 +209,25 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
 
     b2FixtureDef fixtPlayer;
     fixtPlayer.shape = &shapePlayer;
-    fixtPlayer.density = 1;
+    fixtPlayer.density = 0.9f;
     fixtPlayer.friction = 0.3f;
     fixtPlayer.restitution = 0.1f;
-    fixtPlayer.userData = PlayerData;
+    fixtPlayer.userData.pointer = reinterpret_cast<uintptr_t>(&EngineRegistry.regUser[Player]);
+
+    b2Fixture* FixturePlayer = bodyPlayer->CreateFixture(&fixtPlayer);
 
     b2FixtureDef fixtGroundCheck;
-    shapePlayer.SetAsBox(dimensions.x / 2, 0.3f, b2Vec2(0, -(dimensions.y / 2)), 0);
+    shapePlayer.SetAsBox(((dimensions.x / 2) - 0.02f), 0.2f, b2Vec2(0, -((dimensions.y / 2))), 0);
     fixtGroundCheck.shape = &shapePlayer;
     fixtGroundCheck.isSensor = true;
-    PlayerData.GroundCheck = true;
-    fixtGroundCheck.userData = PlayerData;
+    fixtGroundCheck.userData.pointer = reinterpret_cast<uintptr_t>(&EngineRegistry.regUser[Player]);
 
-    bodyPlayer->CreateFixture(&fixtPlayer);
-    bodyPlayer->CreateFixture(&fixtGroundCheck);
+    FixturePlayer = bodyPlayer->CreateFixture(&fixtGroundCheck);
 
     EngineRegistry.regPhysics[Player].body = bodyPlayer;
     EngineRegistry.regActor[Player].PreviousPosition = b2Vec2(position.x, position.y);
     EngineRegistry.regPlayer[Player].MoveState = PlayerMoveX::STOP;
-
+    EngineRegistry.regPlayer[Player].DoubleJump = 1;
 
     return Player;
 }

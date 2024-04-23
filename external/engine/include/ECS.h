@@ -23,15 +23,15 @@ enum Material
     Ice = 2
 };
 
-struct UserData : b2FixtureUserData
-{
-    std::size_t ECS_ID;
-    Material MATERIAL_ID;
-    bool GroundCheck;
-};
-
 struct Component
 {
+    struct Box2DUserData
+    {
+        std::size_t ECS_ID;
+        Material MATERIAL_ID;
+        bool GroundCheck;
+    };
+
     struct Physics
     {
         b2Body* body;
@@ -56,6 +56,7 @@ struct Component
         b2Vec2 Velocity; 
         PlayerMoveX MoveState;
 
+        int DoubleJump;
         int GroundContacts;
     };
 };
@@ -66,6 +67,7 @@ struct Registry
     std::unordered_map<std::size_t, Component::Physics> regPhysics;
     std::unordered_map<std::size_t, Component::Physics::Actor> regActor;
     std::unordered_map<std::size_t, Component::Physics::Solid> regSolid; 
+    std::unordered_map<std::size_t, Component::Box2DUserData> regUser;
 };
 struct System 
 {

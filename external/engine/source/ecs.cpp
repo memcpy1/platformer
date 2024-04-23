@@ -18,14 +18,23 @@ void System::Player::Update(const std::size_t& ID, Registry& reg, bool collision
     float VelChangeX = reg.regPlayer[ID].MoveState * 0.33f - Vel.x;
 
     if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_C))
-        reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2(0, reg.regPhysics[ID].body->GetMass() / 10), reg.regPhysics[ID].body->GetWorldCenter(), 0);
+    {
+        if (reg.regPlayer[ID].GroundContacts < 1) 
+            return;
+        else
+        {
+            reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2(0, reg.regPhysics[ID].body->GetMass() / 9), reg.regPhysics[ID].body->GetWorldCenter(), 0);
+        }      
+    }
+        
+            
 
     
 
     reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2((VelChangeX * reg.regPhysics[ID].body->GetMass()), 0), 
     reg.regPhysics[ID].body->GetWorldCenter(), 0);
 
-    std::cout << reg.regPlayer[ID].GroundContacts << '\n';
+    //std::cout << reg.regPlayer[ID].GroundContacts << '\n';
 }
 
 #pragma region PHYSICS
