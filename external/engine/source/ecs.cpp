@@ -2,10 +2,8 @@
 #include "Engine.h"
 
 
-void System::Player::Update(const std::size_t& ID, Registry& reg, bool collision, b2World* world, DebugDrawSDL& debug)
+void System::Input::Listen(Registry& reg, const std::size_t& ID)
 {
-    b2Vec2 Vel = reg.regPhysics[ID].body->GetLinearVelocity();
-
     if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_RIGHT))
         reg.regPlayer[ID].MoveState = PlayerMoveX::MOVE_RIGHT;
     else if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_LEFT))
@@ -14,18 +12,35 @@ void System::Player::Update(const std::size_t& ID, Registry& reg, bool collision
         reg.regPlayer[ID].MoveState = PlayerMoveX::STOP;
     else
         reg.regPlayer[ID].MoveState = PlayerMoveX::STOP;
-
-    float VelChangeX = reg.regPlayer[ID].MoveState * 0.33f - Vel.x;
-
+    
     if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_C))
     {
+        Engine::Get()->GetEventHandler()->Freeze(SDL_SCANCODE_C);
+
         if (reg.regPlayer[ID].GroundContacts < 1) 
-            return;
+            if (reg.regPlayer[ID].DoubleJump != 0 && reg.regPlayer[ID].JumpTime.GetTicks() > 350)
+            {
+                reg.regPlayer[ID].JumpTime.Start();
+                reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2(0, 0.37f), reg.regPhysics[ID].body->GetWorldCenter(), 0);
+                reg.regPlayer[ID].DoubleJump--;
+            }
+            else
+                return;
         else
         {
+            reg.regPlayer[ID].DoubleJump = 1;
+            reg.regPlayer[ID].JumpTime.Start();
             reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2(0, reg.regPhysics[ID].body->GetMass() / 9), reg.regPhysics[ID].body->GetWorldCenter(), 0);
         }      
     }
+}
+
+void System::Player::Update(const std::size_t& ID, Registry& reg, bool collision, b2World* world, DebugDrawSDL& debug)
+{
+    b2Vec2 Vel = reg.regPhysics[ID].body->GetLinearVelocity();
+    float VelChangeX = reg.regPlayer[ID].MoveState * 0.44f - Vel.x;
+
+
         
             
 
@@ -33,8 +48,6 @@ void System::Player::Update(const std::size_t& ID, Registry& reg, bool collision
 
     reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2((VelChangeX * reg.regPhysics[ID].body->GetMass()), 0), 
     reg.regPhysics[ID].body->GetWorldCenter(), 0);
-
-    //std::cout << reg.regPlayer[ID].GroundContacts << '\n';
 }
 
 #pragma region PHYSICS

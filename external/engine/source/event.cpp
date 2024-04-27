@@ -31,7 +31,12 @@ void EventHandler::Poll()
 
 bool EventHandler::IsKeyDown(SDL_Scancode key)
 {
-    return (Keystates[key] == 1);
+    return Keystates[key] && !FrozenKeys[key];
+}
+
+void EventHandler::Freeze(const SDL_Scancode& key)
+{
+    FrozenKeys[key] = 1;
 }
 
 EventHandler::EventHandler()

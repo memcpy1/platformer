@@ -8,6 +8,7 @@
 #include <box2d/b2_world.h>
 
 #include "Debug.h"
+#include "Timer.h"
 
 enum PlayerMoveX
 {
@@ -56,7 +57,9 @@ struct Component
         b2Vec2 Velocity; 
         PlayerMoveX MoveState;
 
-        int DoubleJump;
+        SDLTimer JumpTime;
+        SDLTimer CoyoteTime;
+        unsigned int DoubleJump;
         int GroundContacts;
     };
 };
@@ -101,6 +104,11 @@ struct System
         {
             return World;
         }
+    };
+
+    struct Input
+    {
+        void Listen(Registry& reg, const std::size_t& ID);
     };
 
     struct Player

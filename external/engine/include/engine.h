@@ -29,6 +29,7 @@ private:
 
     System::Player PlayerSystem;
     System::Physics PhysicsSystem;
+    System::Input InputSystem;
     CollisionListener collisionListener;
 
     EventHandler KeyboardInput;

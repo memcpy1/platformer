@@ -235,6 +235,7 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
 void Engine::PollEvents()
 {
     KeyboardInput.Poll();
+    InputSystem.Listen(EngineRegistry, Player);
 }
 
 void Engine::Render()
