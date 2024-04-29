@@ -6,15 +6,15 @@ class EventHandler
 {
 private:
     SDL_Event Event;
-    const uint8_t* Keystates;
+    uint8_t* Keystates;
     std::unordered_map<SDL_Scancode, bool> FrozenKeys;
 public:
     static EventHandler* GetInstance();
  
     void Poll();
-    void Freeze(const SDL_Scancode& key);
     bool IsKeyDown(SDL_Scancode key);
-
+    void FreezeKey(const SDL_Scancode& key); 
+    void ResetKey(const SDL_Scancode& key); 
     EventHandler();
 private:
     void KeyDown();

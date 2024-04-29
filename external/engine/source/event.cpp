@@ -34,21 +34,27 @@ bool EventHandler::IsKeyDown(SDL_Scancode key)
     return Keystates[key] && !FrozenKeys[key];
 }
 
-void EventHandler::Freeze(const SDL_Scancode& key)
+void EventHandler::FreezeKey(const SDL_Scancode& key)
 {
+    Keystates[key] = 0;
     FrozenKeys[key] = 1;
+}
+
+void EventHandler::ResetKey(const SDL_Scancode& key)
+{
+    FrozenKeys[key] = 0;
 }
 
 EventHandler::EventHandler()
     : Event() 
 {
-    Keystates = SDL_GetKeyboardState(0);
+    Keystates = (uint8_t*)SDL_GetKeyboardState(0);
 }
 void EventHandler::KeyDown()
 {
-    Keystates = SDL_GetKeyboardState(0);
+    Keystates = (uint8_t*)SDL_GetKeyboardState(0);
 }
 void EventHandler::KeyUp()
 {
-    Keystates = SDL_GetKeyboardState(0);
+    Keystates = (uint8_t*)SDL_GetKeyboardState(0);
 }

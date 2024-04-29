@@ -59,7 +59,7 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
     RegisterSolid(b2Vec2(0, -4), b2Vec2(14.2f, 0.5f));
     RegisterActor(b2Vec2(1.2f, 4), b2Vec2(0.5f, 0.5f), 0, 12, 1, 0.1f);
 
-    Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.65f));
+    Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.65f), "../../res/img/Solid_red.png");
     std::cout << Player << '\n';
     
 
@@ -121,6 +121,7 @@ void Engine::Update()
     
     PlayerSystem.Update(Player, EngineRegistry, 0, PhysicsSystem.GetWorld(), PhysicsDebugger);
     PhysicsSystem.Update(Dt, EngineRegistry);
+    GraphicsSystem.Update(EngineRegistry);
 
 
     FrameCount++;
@@ -190,7 +191,7 @@ const float& angle, const float& density, const float& frictionCoeff)
     return Actor;
 }
 
-std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensions)
+std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensions, const std::string& texturePath)
 {
     std::size_t Player = CreateEntity();
     EngineRegistry.regUser[Player].ECS_ID = Player;
@@ -224,6 +225,9 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
 
     FixturePlayer = bodyPlayer->CreateFixture(&fixtGroundCheck);
 
+    std::size_t TextureID = GraphicsSystem.LoadFromFile(GraphicsSystem.GenTextureID(), texturePath.c_str());
+
+    EngineRegistry.regGraphics[Player].TextureID = TextureID;
     EngineRegistry.regPhysics[Player].body = bodyPlayer;
     EngineRegistry.regActor[Player].PreviousPosition = b2Vec2(position.x, position.y);
     EngineRegistry.regPlayer[Player].MoveState = PlayerMoveX::STOP;
@@ -242,6 +246,9 @@ void Engine::Render()
 {   
     SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 0xFF);
     SDL_RenderClear(Renderer);
+
+    GraphicsSystem.Render(EngineRegistry);
+
     PhysicsDebugger.DrawGridline(40);
     PhysicsDebugger.DrawCartesianAxis();
     PhysicsSystem.World->DebugDraw();

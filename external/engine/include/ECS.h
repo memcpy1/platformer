@@ -1,6 +1,9 @@
 #pragma once
 //STL
 #include <unordered_map>
+#include <iostream>
+#include <algorithm>
+#include <fstream>
 //box2D
 #include <box2d/b2_math.h>
 #include <box2d/b2_body.h>
@@ -24,8 +27,31 @@ enum Material
     Ice = 2
 };
 
+struct SpriteAttrib
+{
+	int ClipNumber;
+	int ClipHeight;
+	int ClipWidth;				//Width of a single clip.
+	int ClipsInRow;
+	
+	SDL_Rect* spriteClips; 
+};
+
+
 struct Component
 {
+    struct Visual
+    {   
+        std::size_t TextureID;
+        b2Vec2 TextureDimensions;
+        SDL_Rect Dst;
+
+        unsigned int Frames;
+        unsigned int CurrentFrame;
+        
+        int Delay;
+    };
+
     struct Box2DUserData
     {
         std::size_t ECS_ID;
@@ -66,6 +92,7 @@ struct Component
 
 struct Registry
 {
+    std::unordered_map<std::size_t, Component::Visual> regGraphics;
     std::unordered_map<std::size_t, Component::Player> regPlayer;
     std::unordered_map<std::size_t, Component::Physics> regPhysics;
     std::unordered_map<std::size_t, Component::Physics::Actor> regActor;
@@ -74,6 +101,50 @@ struct Registry
 };
 struct System 
 {
+    struct Visual
+    {
+    private:
+	    std::unordered_map<std::size_t, SDL_Texture*> TextureMap;
+	    std::unordered_map<std::size_t, SDL_Rect*> SpriteMap;
+
+        unsigned int TextureCount = 0;
+    public:
+	    const std::size_t& LoadFromFile(const std::size_t& ID, const char* path);
+	    void Drop(const std::size_t& ID);
+
+	    void RenderTexture(const std::size_t& ID, const SDL_Rect& pDst, const float& angle, SDL_Point* center,
+	    SDL_RendererFlip flip);
+	    void RenderSprite(const std::size_t& ID, const int& spriteIndex, const b2Vec2& vec2, const double& angle, 
+	    SDL_Point* center, SDL_RendererFlip flip);
+
+	    void SetBlending(const std::size_t& ID, const SDL_BlendMode& blend);	
+	    void SetAlpha(const std::size_t& ID, const Uint8& alpha);	
+	    void Tint(const std::size_t& ID, const SDL_Color& tint);
+	
+	    std::size_t LoadSpriteSheetFromFile(const std::size_t ID, const std::string& filepath, const int& pClipNumber, const int& pClipHeight, const int& pClipWidth, 
+	    const int& pClipsInARow);
+	    void PlayAnimation(const std::size_t& ID, const SDL_Rect& dst, const int& frames, const int& delay, 
+	    const double& angle, SDL_Point* center, SDL_RendererFlip flip);
+
+	    SDL_Texture* GetTexturePtr(const std::size_t& ID);
+
+        const std::size_t GenTextureID()
+        {
+            static std::size_t Texture;
+            ++Texture;
+
+            TextureCount = Texture;
+            return Texture;
+        }
+    
+	    ~Visual();
+        Visual() {}
+    public:
+        void Render(Registry& reg);
+        void Update(Registry& pReg);
+    };
+    
+
     struct Physics
     {
     private:
@@ -121,8 +192,6 @@ struct System
         void Update(const std::size_t& ID, Registry& reg, bool collision, b2World* world, DebugDrawSDL& debug);
           
         void Jump(const float& amount);
-
-        void Render();
     };
 };
 

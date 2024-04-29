@@ -27,11 +27,12 @@ private:
     Registry EngineRegistry;
     std::size_t MaxEntities;
 
+    System::Visual GraphicsSystem;
     System::Player PlayerSystem;
     System::Physics PhysicsSystem;
     System::Input InputSystem;
-    CollisionListener collisionListener;
 
+    CollisionListener collisionListener;
     EventHandler KeyboardInput;
 
     float Gravity;
@@ -84,7 +85,7 @@ public:
     //ECS
     std::size_t RegisterSolid(const b2Vec2& position, const b2Vec2& dimensions);
     std::size_t RegisterActor(const b2Vec2& position, const b2Vec2& dimensions, const bool& kinematic, const float& angle, const float& density, const float& frictionCoeff);
-    std::size_t RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensions);
+    std::size_t RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensions, const std::string& texturePath);
     std::size_t CreateEntity();
     std::size_t GetMaxEntity();
 private:
