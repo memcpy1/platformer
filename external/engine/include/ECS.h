@@ -9,9 +9,12 @@
 #include <box2d/b2_body.h>
 #include <box2d/b2_fixture.h>
 #include <box2d/b2_world.h>
-
+//Engine
 #include "Debug.h"
 #include "Timer.h"
+//SDL
+#include <SDL_ttf.h>
+
 
 enum PlayerMoveX
 {
@@ -27,6 +30,14 @@ enum Material
     Ice = 2
 };
 
+namespace Animation
+{
+    const int PLAYER_STILL[] = {0};
+    const int PLAYER_WALK[] = {0, 1, 2, 3};
+    const int PLAYER_RUN[] = {0, 6, 2};
+    const int PLAYER_MIDAIR = 3;
+};
+
 struct SpriteAttrib
 {
 	int ClipNumber;
@@ -37,6 +48,10 @@ struct SpriteAttrib
 	SDL_Rect* spriteClips; 
 };
 
+struct Res
+{
+    TTF_Font* fontPlayFair;
+};
 
 struct Component
 {
@@ -46,8 +61,10 @@ struct Component
         b2Vec2 TextureDimensions;
         SDL_Rect Dst;
 
+        bool Animated;
+        bool Facing; //0 -> right, 1 -> left
+        const int* AnimationType;
         unsigned int Frames;
-        unsigned int CurrentFrame;
         
         int Delay;
     };
@@ -61,6 +78,7 @@ struct Component
 
     struct Physics
     {
+        b2Vec2 Dimensions;
         b2Body* body;
 
         struct Actor
@@ -87,6 +105,8 @@ struct Component
         SDLTimer CoyoteTime;
         unsigned int DoubleJump;
         int GroundContacts;
+
+        int* Animations = nullptr;
     };
 };
 
@@ -121,8 +141,8 @@ struct System
 	    void SetAlpha(const std::size_t& ID, const Uint8& alpha);	
 	    void Tint(const std::size_t& ID, const SDL_Color& tint);
 	
-	    std::size_t LoadSpriteSheetFromFile(const std::size_t ID, const std::string& filepath, const int& pClipNumber, const int& pClipHeight, const int& pClipWidth, 
-	    const int& pClipsInARow);
+	    std::size_t LoadSpriteSheetFromFile(const std::size_t ID, const std::string& filepath, const int& clipNumber, const int& clipHeight, const int& clipWidth, 
+	    const int& clipsInARow);
 	    void PlayAnimation(const std::size_t& ID, const SDL_Rect& dst, const int& frames, const int& delay, 
 	    const double& angle, SDL_Point* center, SDL_RendererFlip flip);
 
@@ -153,13 +173,19 @@ struct System
 
         float TimestepAccumulator;
         float TimestepAccumulatorRatio;
+
+        float FixedTimestep;
     public:
         b2World* World;
-        float FixedTimestep;
-        void Update(float& Dt, Registry& reg);
+        void Update(const float& Dt);
         void Interpolate(Registry& reg, const double& alpha);
     public:
         Physics(const float& timestepFixed, const float& gravity);
+
+        void SetTimestep(const float& timestep)
+        {
+            FixedTimestep = timestep;
+        }
 
         b2Body* GetBodyList()
         {

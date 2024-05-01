@@ -11,7 +11,7 @@ void System::Visual::Update(Registry& reg)
     {
         if (reg.regGraphics.count(e) && reg.regPhysics.count(e))
         {
-            reg.regGraphics[e].Dst.x = Engine::Get()->Box2DSDL(reg.regPhysics[e].body->GetPosition()).x 
+			reg.regGraphics[e].Dst.x = Engine::Get()->Box2DSDL(reg.regPhysics[e].body->GetPosition()).x 
             - (reg.regGraphics[e].TextureDimensions.x / 2);
             reg.regGraphics[e].Dst.y = 
             (Engine::Get()->GetWindowSurface()->h - Engine::Get()->Box2DSDL(reg.regPhysics[e].body->GetPosition()).y) - 
@@ -28,8 +28,15 @@ void System::Visual::Render(Registry& reg)
     {
         if(reg.regGraphics.count(e))
         {
-            SDL_RenderCopy(Engine::Get()->GetRenderer(), GetTexturePtr(reg.regGraphics[e].TextureID),
-            0, &reg.regGraphics[e].Dst);
+			if (reg.regGraphics[e].Animated)
+			{
+				int Frame = 1;//reg.regGraphics[e].AnimationType[static_cast<int>((SDL_GetTicks64() / reg.regGraphics[e].Delay) % reg.regGraphics[e].Frames)];
+				SDL_RenderCopyEx(Engine::Get()->GetRenderer(), TextureMap[e], &SpriteMap[e][Frame], &reg.regGraphics[e].Dst, 0, 0, 
+				(SDL_RendererFlip)reg.regGraphics[e].Facing);
+			}
+			else
+            	SDL_RenderCopy(Engine::Get()->GetRenderer(), GetTexturePtr(reg.regGraphics[e].TextureID), 0, 
+				&reg.regGraphics[e].Dst);
         }   
     }
 }
@@ -184,21 +191,36 @@ std::size_t System::Visual::LoadSpriteSheetFromFile(const std::size_t ID, const 
 void System::Input::Listen(Registry& reg, const std::size_t& ID)
 {
     if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_RIGHT))
-        reg.regPlayer[ID].MoveState = PlayerMoveX::MOVE_RIGHT;
-    else if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_LEFT))
-        reg.regPlayer[ID].MoveState = PlayerMoveX::MOVE_LEFT;
-    else if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_RIGHT) && Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_LEFT))
-        reg.regPlayer[ID].MoveState = PlayerMoveX::STOP;
+    {
+		reg.regPlayer[ID].MoveState = PlayerMoveX::MOVE_RIGHT;
+		reg.regGraphics[ID].AnimationType = Animation::PLAYER_WALK;
+		reg.regGraphics[ID].Facing = 0;
+    }
+	else if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_LEFT))
+    {
+		reg.regPlayer[ID].MoveState = PlayerMoveX::MOVE_LEFT;
+		reg.regGraphics[ID].AnimationType = Animation::PLAYER_WALK;
+		reg.regGraphics[ID].Facing = 1;
+	}
+    else if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_RIGHT) && Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_LEFT))   
+	{
+		reg.regPlayer[ID].MoveState = PlayerMoveX::STOP;
+		reg.regPlayer[ID].MoveState = PlayerMoveX::MOVE_LEFT;
+		reg.regGraphics[ID].AnimationType = Animation::PLAYER_STILL;
+	}
     else
-        reg.regPlayer[ID].MoveState = PlayerMoveX::STOP;
-    
+	{
+		reg.regPlayer[ID].MoveState = PlayerMoveX::STOP;
+		reg.regGraphics[ID].AnimationType = Animation::PLAYER_STILL;
+	}
+        
     if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_C))
     {   
         if (reg.regPlayer[ID].GroundContacts < 1)
         {
             if (reg.regPlayer[ID].DoubleJump != 0 && reg.regPlayer[ID].JumpTime.GetTicks() > 300)
             {
-                reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2(0, reg.regPlayer[ID].JumpTime.GetTicks() / 1000.0f), 
+                reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2(0, 0.001f * reg.regPlayer[ID].JumpTime.GetTicks()), 
                 reg.regPhysics[ID].body->GetWorldCenter(), 0);
         
                 reg.regPlayer[ID].DoubleJump--;
@@ -210,9 +232,10 @@ void System::Input::Listen(Registry& reg, const std::size_t& ID)
 
         else
         {
+			std::cout << "Jump" << std::endl;
             reg.regPlayer[ID].DoubleJump = 1;
             reg.regPlayer[ID].JumpTime.Start();
-            reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2(0, reg.regPhysics[ID].body->GetMass() / 9), reg.regPhysics[ID].body->GetWorldCenter(), 0);
+            reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2(0, 0.28f), reg.regPhysics[ID].body->GetWorldCenter(), 0);
         }      
     }
 }
@@ -220,7 +243,7 @@ void System::Input::Listen(Registry& reg, const std::size_t& ID)
 void System::Player::Update(const std::size_t& ID, Registry& reg, bool collision, b2World* world, DebugDrawSDL& debug)
 {
     b2Vec2 Vel = reg.regPhysics[ID].body->GetLinearVelocity();
-    float VelChangeX = reg.regPlayer[ID].MoveState * 0.44f - Vel.x;
+    float VelChangeX = reg.regPlayer[ID].MoveState * 0.5f - Vel.x;
 
 
         
@@ -234,28 +257,41 @@ void System::Player::Update(const std::size_t& ID, Registry& reg, bool collision
 
 #pragma region PHYSICS
 System::Physics::Physics(const float& timestepFixed, const float& gravity)
-    : TimestepAccumulator(0), TimestepAccumulatorRatio(0), VelocityIterations(6), PositionIterations(2)
+    : FixedTimestep(timestepFixed), TimestepAccumulator(0), TimestepAccumulatorRatio(0), VelocityIterations(6), PositionIterations(2)
 {
-    FixedTimestep = timestepFixed;
-
     World = new b2World(b2Vec2(0, -gravity));
-    World->SetAutoClearForces(0);
 }
 
-void System::Physics::Update(float& Dt, Registry& reg) //should refactor
+void System::Physics::Update(const float& Dt)
 {  
-    if (Dt > 0.03f)
-        Dt = 0.03f;
-    
-    TimestepAccumulator += Dt;
-    while (TimestepAccumulator >= Dt)
-    {    
-        World->Step(Dt, VelocityIterations, PositionIterations);
-        TimestepAccumulator -= Dt;
-    }
+	// Maximum number of steps, to avoid degrading to an halt.
+	const int MAX_STEPS = 5;
+ 
+	TimestepAccumulator += Dt;
+	const int nSteps = static_cast<int> (
+		std::floor (TimestepAccumulator / FixedTimestep)
+	);
+	// To avoid rounding errors, touches TimestepAccumulator only if needed.
+	if (nSteps > 0)
+		TimestepAccumulator -= nSteps * FixedTimestep;
 
-    const double Alpha = TimestepAccumulator / Dt;
-    Interpolate(reg, Alpha);
+	assert (
+		"Accumulator must have a value lesser than the fixed time step" &&
+		TimestepAccumulator < FixedTimestep + FLT_EPSILON
+	);
+
+	TimestepAccumulatorRatio = TimestepAccumulator / FixedTimestep;
+ 
+	// This is similar to clamp "dt":
+	//	dt = std::min (dt, MAX_STEPS * FixedTimestep)
+	// but it allows above calculations of fixedTimestepAccumulator_ and
+	// fixedTimestepAccumulatorRatio_ to remain unchanged.
+	const int nStepsClamped = std::min(nSteps, MAX_STEPS);
+	
+	for (int i = 0; i < nStepsClamped; i++)
+	{
+		World->Step(FixedTimestep, VelocityIterations, PositionIterations);
+	}
 }
 
 void System::Physics::Interpolate(Registry& reg, const double& alpha)

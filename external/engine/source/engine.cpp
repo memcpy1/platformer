@@ -4,7 +4,7 @@
 Engine* Engine::sInstance = nullptr;
 
 
-bool Engine::Initialize(std::string title, const unsigned int& width, const unsigned int& height)
+bool Engine::Initialize(std::string title, const unsigned int& width, const unsigned int& height, bool vsync)
 {
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
     {
@@ -34,12 +34,18 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
         return false;
     }
 
-    Renderer = SDL_CreateRenderer(Window, -1, SDL_RENDERER_ACCELERATED || SDL_RENDERER_PRESENTVSYNC);
+    Renderer = SDL_CreateRenderer(Window, -1, vsync == 1 ? (SDL_RENDERER_ACCELERATED + SDL_RENDERER_PRESENTVSYNC) 
+    : SDL_RENDERER_ACCELERATED);
+
     if (!Renderer)
     {
         std::cout << "[SDL2]: Could not create renderer.   : " << SDL_GetError() << std::endl;
         return false;
     }
+
+    if (vsync)
+        PhysicsSystem.SetTimestep(1.0f / 60.0f);
+
 
     EngineTimer.Start();
 
@@ -48,6 +54,8 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
     
     CurrentTick = SDL_GetPerformanceCounter();
     LastTick = 0;
+
+    Resources.fontPlayFair = TTF_OpenFont("../../res/font/PlayfairDisplayRegular.ttf", 36); 
 
     PhysicsDebugger.SetFlags(b2Draw::e_shapeBit);
     PhysicsSystem.GetWorld()->SetDebugDraw(&PhysicsDebugger);
@@ -58,10 +66,7 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
 
     RegisterSolid(b2Vec2(0, -4), b2Vec2(14.2f, 0.5f));
     RegisterActor(b2Vec2(1.2f, 4), b2Vec2(0.5f, 0.5f), 0, 12, 1, 0.1f);
-
-    Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.65f), "../../res/img/Solid_red.png");
-    std::cout << Player << '\n';
-    
+    Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.65f), "../../res/img/anim_test.png");
 
     return true;
 }
@@ -117,12 +122,14 @@ void Engine::Update()
     
     float Dt = (float)((CurrentTick - LastTick) * 10 / (float)SDL_GetPerformanceFrequency());
     
-    FPS = FrameCount / (EngineTimer.GetTicks() / 1000.0f);
+    DisplayFPS.str(std::string());
+    DisplayFPS << FrameCount / (EngineTimer.GetTicks() / 1000.0f);
+    
+    PhysicsSystem.Update(Dt);
     
     PlayerSystem.Update(Player, EngineRegistry, 0, PhysicsSystem.GetWorld(), PhysicsDebugger);
-    PhysicsSystem.Update(Dt, EngineRegistry);
     GraphicsSystem.Update(EngineRegistry);
-
+    
 
     FrameCount++;
 }
@@ -218,16 +225,22 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
     b2Fixture* FixturePlayer = bodyPlayer->CreateFixture(&fixtPlayer);
 
     b2FixtureDef fixtGroundCheck;
-    shapePlayer.SetAsBox(((dimensions.x / 2) - 0.02f), 0.2f, b2Vec2(0, -((dimensions.y / 2))), 0);
+    shapePlayer.SetAsBox(((dimensions.x / 2) - 0.02f), 0.1f, b2Vec2(0, -((dimensions.y / 2))), 0);
     fixtGroundCheck.shape = &shapePlayer;
     fixtGroundCheck.isSensor = true;
     fixtGroundCheck.userData.pointer = reinterpret_cast<uintptr_t>(&EngineRegistry.regUser[Player]);
 
     FixturePlayer = bodyPlayer->CreateFixture(&fixtGroundCheck);
 
-    std::size_t TextureID = GraphicsSystem.LoadFromFile(GraphicsSystem.GenTextureID(), texturePath.c_str());
+    std::size_t TextureID = GraphicsSystem.LoadSpriteSheetFromFile(GraphicsSystem.GenTextureID(), texturePath.c_str(), 4, 100, 50, 2);
+    int width, height;
+    SDL_QueryTexture(GraphicsSystem.GetTexturePtr(TextureID), 0, 0, &width, &height);
 
+    EngineRegistry.regGraphics[Player].TextureDimensions = b2Vec2(width, height);
     EngineRegistry.regGraphics[Player].TextureID = TextureID;
+    EngineRegistry.regGraphics[Player].Animated = true;
+    EngineRegistry.regGraphics[Player].Frames = 4;
+    EngineRegistry.regGraphics[Player].Delay = 100;
     EngineRegistry.regPhysics[Player].body = bodyPlayer;
     EngineRegistry.regActor[Player].PreviousPosition = b2Vec2(position.x, position.y);
     EngineRegistry.regPlayer[Player].MoveState = PlayerMoveX::STOP;
@@ -252,6 +265,9 @@ void Engine::Render()
     PhysicsDebugger.DrawGridline(40);
     PhysicsDebugger.DrawCartesianAxis();
     PhysicsSystem.World->DebugDraw();
+    RenderText(b2Vec2(10, 10), DisplayFPS.str(), Resources.fontPlayFair, SDL_Color(255, 255, 255, 255), 0, 0, SDL_FLIP_NONE);
+
+
     SDL_RenderPresent(Renderer);
 }
 

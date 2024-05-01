@@ -13,6 +13,7 @@ add_subdirectory(external/Box2D)
 
 add_library(${PROJECT_NAME} STATIC
         source/engine.cpp       include/Engine.h
+        source/text.cpp         include/Text.h
         source/timer.cpp        include/Timer.h
         source/ecs.cpp          include/ECS.h
         source/debug.cpp        include/Debug.h

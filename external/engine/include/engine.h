@@ -7,8 +7,10 @@
 #include <SDL_image.h>
 #include <SDL_mixer.h>
 #include <SDL_ttf.h>
+#include <sstream>
 //Engine
 #include "Timer.h"
+#include "Text.h"
 #include "Debug.h"
 #include "Event.h"
 #include "ECS.h"
@@ -25,28 +27,25 @@ private:
     static Engine* sInstance;
     
     Registry EngineRegistry;
+    Res Resources;
     std::size_t MaxEntities;
 
     System::Visual GraphicsSystem;
     System::Player PlayerSystem;
     System::Physics PhysicsSystem;
+    DebugDrawSDL PhysicsDebugger;
     System::Input InputSystem;
 
     CollisionListener collisionListener;
     EventHandler KeyboardInput;
-
-    float Gravity;
-
     std::size_t Player;
-
-    DebugDrawSDL PhysicsDebugger;
 
     unsigned int Width;
     unsigned int Height;
 
     SDLTimer EngineTimer;
     SDLTimer FPSLimiter;
-    float FPS;
+    std::stringstream DisplayFPS;
     uint32_t FrameCount = 0;
 
     uint64_t CurrentTick;
@@ -55,11 +54,13 @@ private:
 
     bool Running = 1;
 public:
-    float FixedFPS = 120.0f;
-    float TicksPerFrame = 1000.0f / FixedFPS;
+    float Gravity;  
+    int FixedFPS = 60;
+    int TicksPerFrame = 1000 / FixedFPS;
+    float PhysicsTimestep = 1.0f / (float)FixedFPS;
 public:
     static Engine* Get();
-    bool Initialize(std::string title, const unsigned int& width, const unsigned int& height);
+    bool Initialize(std::string title, const unsigned int& width, const unsigned int& height, bool vsync);
 
     void Update();
     void PollEvents();
@@ -90,5 +91,5 @@ public:
     std::size_t GetMaxEntity();
 private:
     Engine() 
-        : PhysicsSystem(System::Physics(1 / 300.0f, 0.673f)) {}
+        : PhysicsSystem(System::Physics(0, 0.9f)) {}
 };
