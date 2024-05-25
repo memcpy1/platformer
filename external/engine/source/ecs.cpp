@@ -1,9 +1,6 @@
 #include "ECS.h"
 #include "Engine.h"
 
-#define RAD2DEG 180.0f / 3.14159265358979f
-#define Metres2Pixels = 80.0f
-#define Pixels2Metres = 1 / 80.0f
 
 void System::Visual::Update(Registry& reg)
 {
@@ -18,6 +15,12 @@ void System::Visual::Update(Registry& reg)
             (reg.regGraphics[e].TextureDimensions.y / 2);
             reg.regGraphics[e].Dst.w = reg.regGraphics[e].TextureDimensions.x;
             reg.regGraphics[e].Dst.h = reg.regGraphics[e].TextureDimensions.y;
+
+			if (reg.regGraphics[e].Animated)
+			{
+				reg.regGraphics[e].CurrentFrame = 
+				reg.regGraphics[e].AnimationType[(int)((SDL_GetTicks64() / reg.regGraphics[e].Delay) % reg.regGraphics[e].FrameCount)];
+			}
         }
     }
 }
@@ -29,13 +32,12 @@ void System::Visual::Render(Registry& reg)
         if(reg.regGraphics.count(e))
         {
 			if (reg.regGraphics[e].Animated)
-			{
-				int Frame = 1;//reg.regGraphics[e].AnimationType[static_cast<int>((SDL_GetTicks64() / reg.regGraphics[e].Delay) % reg.regGraphics[e].Frames)];
-				SDL_RenderCopyEx(Engine::Get()->GetRenderer(), TextureMap[e], &SpriteMap[e][Frame], &reg.regGraphics[e].Dst, 0, 0, 
-				(SDL_RendererFlip)reg.regGraphics[e].Facing);
+			{								
+				SDL_RenderCopy(Engine::Get()->GetRenderer(), GetTexturePtr(e), &reg.regGraphics[e].Frames[reg.regGraphics[e].CurrentFrame], 
+				&reg.regGraphics[e].Dst);																
 			}
 			else
-            	SDL_RenderCopy(Engine::Get()->GetRenderer(), GetTexturePtr(reg.regGraphics[e].TextureID), 0, 
+            	SDL_RenderCopy(Engine::Get()->GetRenderer(), GetTexturePtr(e), 0, 
 				&reg.regGraphics[e].Dst);
         }   
     }
@@ -104,41 +106,23 @@ SDL_Texture* System::Visual::GetTexturePtr(const std::size_t& ID)
 	return TextureMap[ID];
 }
 
-void System::Visual::RenderSprite(const std::size_t& ID, const int& spriteIndex, const b2Vec2& vec2, const double& angle, 
-SDL_Point* center, SDL_RendererFlip flip)
-{
-	SDL_Rect RenderingSurface = {};
-	RenderingSurface.x = vec2.x;
-	RenderingSurface.y = vec2.y;
-
-	SDL_Rect* Clip = &SpriteMap[ID][spriteIndex];
-
-	if (Clip)
-	{
-		RenderingSurface.w = Clip->w;
-		RenderingSurface.h = Clip->h;
-	}
-	SDL_RenderCopyEx(Engine::Get()->GetRenderer(), TextureMap[ID], Clip, &RenderingSurface, angle, center, flip);
-}
-
-void System::Visual::PlayAnimation(const std::size_t& ID, const SDL_Rect& dst, const int& frames, 
+void System::Visual::PlayAnimation(const std::size_t& EntityID, const SDL_Rect& dst, const int& frames, 
 const int& delay, const double& angle, SDL_Point* center, SDL_RendererFlip flip)
 {
-	SDL_RenderCopyEx(Engine::Get()->GetRenderer(), TextureMap[ID], 
-	&SpriteMap[ID][static_cast<int>((SDL_GetTicks64() / delay) % frames)], &dst, angle, center, flip);
+	SDL_RenderCopyEx(Engine::Get()->GetRenderer(), TextureMap[EntityID], 
+	&Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[static_cast<int>((SDL_GetTicks64() / delay) % frames)], 
+	&dst, angle, center, flip);
 }
 
-std::size_t System::Visual::LoadSpriteSheetFromFile(const std::size_t ID, const std::string& filepath, const int& ClipNumber, const int& ClipHeight, const int& ClipWidth, 
-	const int& ClipsInARow)
+//TODO: Debug this shit
+void System::Visual::LoadSpriteSheetFromFile(const std::size_t EntityID, const std::string& filepath, 
+const int& ClipNumber, const int& ClipHeight, const int& ClipWidth, const int& ClipsInARow)
 {
-	LoadFromFile(ID, filepath.c_str());
+	LoadFromFile(EntityID, filepath.c_str());
+	
+	Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames = new SDL_Rect[ClipNumber];
 
-	for(int i = 0; i < ClipNumber; i++)
-	{
-		SpriteMap[ID] = new SDL_Rect[ClipNumber];
-	}
-
-	if (TextureMap.count(ID))
+	if (TextureMap.count(EntityID))
 	{
 		for (int i = 0; i < ClipNumber; i++)
 		{
@@ -146,46 +130,47 @@ std::size_t System::Visual::LoadSpriteSheetFromFile(const std::size_t ID, const 
 			{
 				if (i == 0)
 				{
-					SpriteMap[ID][i].x = 0;
-					SpriteMap[ID][i].y = 0;
+					Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].x = 0;
+					Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].y = 0;
 				}
 				else
 				{
-					SpriteMap[ID][i].x = ClipWidth * i;
-					SpriteMap[ID][i].y = 0;
+					Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].x = ClipWidth * i;
+					Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].y = 0;
 				}
 
-				SpriteMap[ID][i].w = ClipWidth;
-				SpriteMap[ID][i].h = ClipHeight;
+				Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].w = ClipWidth;
+				Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].h = ClipHeight;
 			}
 
 			else if (!(i > ClipsInARow * (i - ClipsInARow + 1)))
 			{
 				if (i == ClipsInARow)
 				{
-					SpriteMap[ID][i].x = 0;
-					SpriteMap[ID][i].y = ClipHeight;
+					Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].x = 0;
+					Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].y = ClipHeight;
 				}
 				else
 				{
-					SpriteMap[ID][i].x = ClipWidth * (i - ClipsInARow);
+					Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].x = ClipWidth * (i - ClipsInARow);
 					if (ClipsInARow == 1)
-						SpriteMap[ID][i].x = 0;
-					SpriteMap[ID][i].y = ClipHeight * (i - ClipsInARow);
+						Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].x = 0;
+					Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].y = ClipHeight * (i - ClipsInARow);
 					if (ClipsInARow == 1)
-						SpriteMap[ID][i].y = i * ClipHeight;
+						Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].y = i * ClipHeight;
 				}
 
-				SpriteMap[ID][i].w = ClipWidth;
-				SpriteMap[ID][i].h = ClipHeight;
+				Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].w = ClipWidth;
+				Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].h = ClipHeight;
 			}
 
 			std::cout << "Clip Extracted" << std::endl;
-			std::cout << SpriteMap[ID][i].x << " " << SpriteMap[ID][i].y << std::endl;
+			std::cout << Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].x << " " 
+			<< Engine::Get()->GetRegistry()->regGraphics[EntityID].Frames[i].y << std::endl;
 		}
 	}
-
-	return ID;
+	else 
+		printf("[LoadSpriteSheetFromFile() :   Texture does not exist!]");
 }
 
 void System::Input::Listen(Registry& reg, const std::size_t& ID)
@@ -194,23 +179,27 @@ void System::Input::Listen(Registry& reg, const std::size_t& ID)
     {
 		reg.regPlayer[ID].MoveState = PlayerMoveX::MOVE_RIGHT;
 		reg.regGraphics[ID].AnimationType = Animation::PLAYER_WALK;
+		reg.regGraphics[ID].FrameCount = 4;
 		reg.regGraphics[ID].Facing = 0;
     }
 	else if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_LEFT))
     {
 		reg.regPlayer[ID].MoveState = PlayerMoveX::MOVE_LEFT;
 		reg.regGraphics[ID].AnimationType = Animation::PLAYER_WALK;
+		reg.regGraphics[ID].FrameCount = 4;
 		reg.regGraphics[ID].Facing = 1;
 	}
     else if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_RIGHT) && Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_LEFT))   
 	{
 		reg.regPlayer[ID].MoveState = PlayerMoveX::STOP;
+		reg.regGraphics[ID].FrameCount = 1;
 		reg.regPlayer[ID].MoveState = PlayerMoveX::MOVE_LEFT;
 		reg.regGraphics[ID].AnimationType = Animation::PLAYER_STILL;
 	}
     else
 	{
 		reg.regPlayer[ID].MoveState = PlayerMoveX::STOP;
+		reg.regGraphics[ID].FrameCount = 1;
 		reg.regGraphics[ID].AnimationType = Animation::PLAYER_STILL;
 	}
         

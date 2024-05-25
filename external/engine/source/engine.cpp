@@ -51,7 +51,7 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
 
     Width = width;
     Height = height;
-    
+
     CurrentTick = SDL_GetPerformanceCounter();
     LastTick = 0;
 
@@ -66,6 +66,8 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
 
     RegisterSolid(b2Vec2(0, -4), b2Vec2(14.2f, 0.5f));
     RegisterActor(b2Vec2(1.2f, 4), b2Vec2(0.5f, 0.5f), 0, 12, 1, 0.1f);
+    
+    GraphicsSystem.LoadFromFile(1 , "../../res/img/Solid_red.png");
     Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.65f), "../../res/img/anim_test.png");
 
     return true;
@@ -198,7 +200,7 @@ const float& angle, const float& density, const float& frictionCoeff)
     return Actor;
 }
 
-std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensions, const std::string& texturePath)
+std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensions, const std::string& spritePath)
 {
     std::size_t Player = CreateEntity();
     EngineRegistry.regUser[Player].ECS_ID = Player;
@@ -232,14 +234,15 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
 
     FixturePlayer = bodyPlayer->CreateFixture(&fixtGroundCheck);
 
-    std::size_t TextureID = GraphicsSystem.LoadSpriteSheetFromFile(GraphicsSystem.GenTextureID(), texturePath.c_str(), 4, 100, 50, 2);
+    GraphicsSystem.LoadSpriteSheetFromFile(Player, spritePath.c_str(), 4, 100, 50, 2);
     int width, height;
-    SDL_QueryTexture(GraphicsSystem.GetTexturePtr(TextureID), 0, 0, &width, &height);
+    SDL_QueryTexture(GraphicsSystem.GetTexturePtr(Player), 0, 0, &width, &height);
 
     EngineRegistry.regGraphics[Player].TextureDimensions = b2Vec2(width, height);
-    EngineRegistry.regGraphics[Player].TextureID = TextureID;
     EngineRegistry.regGraphics[Player].Animated = true;
-    EngineRegistry.regGraphics[Player].Frames = 4;
+    EngineRegistry.regGraphics[Player].AnimationType = Animation::PLAYER_WALK;
+    EngineRegistry.regGraphics[Player].FrameCount = 4;
+    EngineRegistry.regGraphics[Player].CurrentFrame = 0;
     EngineRegistry.regGraphics[Player].Delay = 100;
     EngineRegistry.regPhysics[Player].body = bodyPlayer;
     EngineRegistry.regActor[Player].PreviousPosition = b2Vec2(position.x, position.y);

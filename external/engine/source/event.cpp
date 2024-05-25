@@ -1,6 +1,7 @@
 #include "Event.h"
 #include "Engine.h"
 
+
 void EventHandler::Poll()
 {
     while (SDL_PollEvent(&Event))
@@ -29,20 +30,10 @@ void EventHandler::Poll()
     }
 }
 
+
 bool EventHandler::IsKeyDown(SDL_Scancode key)
 {
-    return Keystates[key] && !FrozenKeys[key];
-}
-
-void EventHandler::FreezeKey(const SDL_Scancode& key)
-{
-    Keystates[key] = 0;
-    FrozenKeys[key] = 1;
-}
-
-void EventHandler::ResetKey(const SDL_Scancode& key)
-{
-    FrozenKeys[key] = 0;
+    return Keystates[key];
 }
 
 EventHandler::EventHandler()

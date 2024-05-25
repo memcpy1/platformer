@@ -13,8 +13,6 @@ public:
  
     void Poll();
     bool IsKeyDown(SDL_Scancode key);
-    void FreezeKey(const SDL_Scancode& key); 
-    void ResetKey(const SDL_Scancode& key); 
     EventHandler();
 private:
     void KeyDown();

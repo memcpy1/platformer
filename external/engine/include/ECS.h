@@ -32,20 +32,10 @@ enum Material
 
 namespace Animation
 {
-    const int PLAYER_STILL[] = {0};
-    const int PLAYER_WALK[] = {0, 1, 2, 3};
-    const int PLAYER_RUN[] = {0, 6, 2};
-    const int PLAYER_MIDAIR = 3;
-};
-
-struct SpriteAttrib
-{
-	int ClipNumber;
-	int ClipHeight;
-	int ClipWidth;				//Width of a single clip.
-	int ClipsInRow;
-	
-	SDL_Rect* spriteClips; 
+    const int8_t PLAYER_STILL[1] = {0};
+    const int8_t PLAYER_WALK[4] = {0, 1, 2, 3};
+    const int8_t PLAYER_RUN[3] = {0, 6, 2};
+    const int8_t PLAYER_MIDAIR[1] = {3};
 };
 
 struct Res
@@ -57,15 +47,18 @@ struct Component
 {
     struct Visual
     {   
-        std::size_t TextureID;
         b2Vec2 TextureDimensions;
         SDL_Rect Dst;
 
         bool Animated;
-        bool Facing; //0 -> right, 1 -> left
-        const int* AnimationType;
-        unsigned int Frames;
+        bool Facing; //0->right, 1->left
+        const int8_t* AnimationType;
+        unsigned int CurrentFrame;
         
+        SDL_Rect* Frames;
+        unsigned int FrameCount; //The amount of separate frames in the sprite sheet file.
+
+
         int Delay;
     };
 
@@ -125,7 +118,6 @@ struct System
     {
     private:
 	    std::unordered_map<std::size_t, SDL_Texture*> TextureMap;
-	    std::unordered_map<std::size_t, SDL_Rect*> SpriteMap;
 
         unsigned int TextureCount = 0;
     public:
@@ -134,29 +126,18 @@ struct System
 
 	    void RenderTexture(const std::size_t& ID, const SDL_Rect& pDst, const float& angle, SDL_Point* center,
 	    SDL_RendererFlip flip);
-	    void RenderSprite(const std::size_t& ID, const int& spriteIndex, const b2Vec2& vec2, const double& angle, 
-	    SDL_Point* center, SDL_RendererFlip flip);
 
 	    void SetBlending(const std::size_t& ID, const SDL_BlendMode& blend);	
 	    void SetAlpha(const std::size_t& ID, const Uint8& alpha);	
 	    void Tint(const std::size_t& ID, const SDL_Color& tint);
 	
-	    std::size_t LoadSpriteSheetFromFile(const std::size_t ID, const std::string& filepath, const int& clipNumber, const int& clipHeight, const int& clipWidth, 
-	    const int& clipsInARow);
-	    void PlayAnimation(const std::size_t& ID, const SDL_Rect& dst, const int& frames, const int& delay, 
-	    const double& angle, SDL_Point* center, SDL_RendererFlip flip);
+	    void LoadSpriteSheetFromFile(const std::size_t EntityID, const std::string& filepath, const int& ClipNumber, 
+        const int& ClipHeight, const int& ClipWidth, const int& ClipsInARow);
+	    void PlayAnimation(const std::size_t& EntityID, const SDL_Rect& dst, const int& frames, 
+        const int& delay, const double& angle, SDL_Point* center, SDL_RendererFlip flip);
 
 	    SDL_Texture* GetTexturePtr(const std::size_t& ID);
 
-        const std::size_t GenTextureID()
-        {
-            static std::size_t Texture;
-            ++Texture;
-
-            TextureCount = Texture;
-            return Texture;
-        }
-    
 	    ~Visual();
         Visual() {}
     public:
@@ -216,8 +197,6 @@ struct System
         const float DecelerationSpeed = 0.1f;
 
         void Update(const std::size_t& ID, Registry& reg, bool collision, b2World* world, DebugDrawSDL& debug);
-          
-        void Jump(const float& amount);
     };
 };
 
