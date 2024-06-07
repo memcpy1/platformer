@@ -32,8 +32,8 @@ enum Material
 
 namespace Animation
 {
-    const int8_t PLAYER_STILL[1] = {0};
-    const int8_t PLAYER_WALK[4] = {0, 1, 2, 3};
+    const int8_t PLAYER_STILL[1] = {8};
+    const int8_t PLAYER_WALK[8] = {0, 1, 2, 3, 4, 5, 6, 7};
     const int8_t PLAYER_RUN[3] = {0, 6, 2};
     const int8_t PLAYER_MIDAIR[1] = {3};
 };
@@ -41,6 +41,21 @@ namespace Animation
 struct Res
 {
     TTF_Font* fontPlayFair;
+};
+
+struct SolidAttrib
+{
+    b2Vec2 Position;
+    b2Vec2 Dimensions;
+};
+
+struct Screen
+{
+    std::vector<SolidAttrib> StaticGeometry;
+    std::vector<std::size_t> StaticGeometryIDs;
+    
+    b2Vec2 PlayerPosition;
+    b2Vec2 AnchorPosition;
 };
 
 struct Component
@@ -67,6 +82,7 @@ struct Component
         std::size_t ECS_ID;
         Material MATERIAL_ID;
         bool GroundCheck;
+        bool Fatal;
     };
 
     struct Physics
@@ -184,11 +200,6 @@ struct System
         }
     };
 
-    struct Input
-    {
-        void Listen(Registry& reg, const std::size_t& ID);
-    };
-
     struct Player
     {
         const float MaxJumpHeight = 0.1f;
@@ -196,7 +207,18 @@ struct System
         const float Gravity = 90.0f;
         const float DecelerationSpeed = 0.1f;
 
-        void Update(const std::size_t& ID, Registry& reg, bool collision, b2World* world, DebugDrawSDL& debug);
+        void Update(const std::size_t& ID, Registry& reg);
+    };
+
+    struct Stage
+    {
+    private:
+        unsigned int CurrentStage;
+        std::vector<Screen> Screens;
+    public:
+        void LoadNext(const std::size_t& PlayerID, const std::size_t& AnchorID);
+        void Load(Screen& screen, const std::size_t& PlayerID, const std::size_t& AnchorID);
+        void Unload(const Screen& screen);
     };
 };
 

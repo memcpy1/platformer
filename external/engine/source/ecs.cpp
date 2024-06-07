@@ -1,7 +1,6 @@
 #include "ECS.h"
 #include "Engine.h"
 
-
 void System::Visual::Update(Registry& reg)
 {
     for (std::size_t e = 1; e <= Engine::Get()->GetMaxEntity(); e++)
@@ -33,8 +32,8 @@ void System::Visual::Render(Registry& reg)
         {
 			if (reg.regGraphics[e].Animated)
 			{								
-				SDL_RenderCopy(Engine::Get()->GetRenderer(), GetTexturePtr(e), &reg.regGraphics[e].Frames[reg.regGraphics[e].CurrentFrame], 
-				&reg.regGraphics[e].Dst);																
+				SDL_RenderCopyEx(Engine::Get()->GetRenderer(), GetTexturePtr(e), &reg.regGraphics[e].Frames[reg.regGraphics[e].CurrentFrame], 
+				&reg.regGraphics[e].Dst, 0, 0, (SDL_RendererFlip)reg.regGraphics[e].Facing);																
 			}
 			else
             	SDL_RenderCopy(Engine::Get()->GetRenderer(), GetTexturePtr(e), 0, 
@@ -76,7 +75,6 @@ void System::Visual::RenderTexture(const std::size_t& ID, const SDL_Rect& pDst, 
 	SDL_RenderCopyEx(Engine::Get()->GetRenderer(), TextureMap[ID], &src, &dst, angle, center, flip);
 }
 
-
 void System::Visual::SetBlending(const std::size_t& ID, const SDL_BlendMode& blend)
 {
 	SDL_SetTextureBlendMode(TextureMap[ID], blend);
@@ -114,7 +112,6 @@ const int& delay, const double& angle, SDL_Point* center, SDL_RendererFlip flip)
 	&dst, angle, center, flip);
 }
 
-//TODO: Debug this shit
 void System::Visual::LoadSpriteSheetFromFile(const std::size_t EntityID, const std::string& filepath, 
 const int& ClipNumber, const int& ClipHeight, const int& ClipWidth, const int& ClipsInARow)
 {
@@ -173,9 +170,10 @@ const int& ClipNumber, const int& ClipHeight, const int& ClipWidth, const int& C
 		printf("[LoadSpriteSheetFromFile() :   Texture does not exist!]");
 }
 
-void System::Input::Listen(Registry& reg, const std::size_t& ID)
+void System::Player::Update(const std::size_t& ID, Registry& reg)
 {
-    if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_RIGHT))
+	
+	if (Engine::Get()->GetEventHandler()->IsKeyDown(SDL_SCANCODE_RIGHT))
     {
 		reg.regPlayer[ID].MoveState = PlayerMoveX::MOVE_RIGHT;
 		reg.regGraphics[ID].AnimationType = Animation::PLAYER_WALK;
@@ -227,21 +225,42 @@ void System::Input::Listen(Registry& reg, const std::size_t& ID)
             reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2(0, 0.28f), reg.regPhysics[ID].body->GetWorldCenter(), 0);
         }      
     }
-}
 
-void System::Player::Update(const std::size_t& ID, Registry& reg, bool collision, b2World* world, DebugDrawSDL& debug)
-{
+
     b2Vec2 Vel = reg.regPhysics[ID].body->GetLinearVelocity();
     float VelChangeX = reg.regPlayer[ID].MoveState * 0.5f - Vel.x;
-
-
-        
-            
-
-    
-
+ 
     reg.regPhysics[ID].body->ApplyLinearImpulse(b2Vec2((VelChangeX * reg.regPhysics[ID].body->GetMass()), 0), 
     reg.regPhysics[ID].body->GetWorldCenter(), 0);
+}
+
+void System::Stage::LoadNext(const std::size_t& PlayerID, const std::size_t& AnchorID)
+{
+	Unload(Screens[CurrentStage]);
+	Load(Screens[CurrentStage++], PlayerID, AnchorID);
+}
+
+void System::Stage::Load(Screen& screen, const std::size_t& PlayerID, const std::size_t& AnchorID)
+{
+	std::vector<std::size_t> IDs;
+
+	for (int i = 0; i < screen.StaticGeometry.size(); i++)
+	{
+		IDs.push_back(Engine::Get()->RegisterSolid(screen.StaticGeometry[i].Position, screen.StaticGeometry[i].Dimensions));
+	}
+
+	screen.StaticGeometryIDs = IDs;
+
+	Engine::Get()->GetRegistry()->regPhysics[PlayerID].body->SetTransform(screen.PlayerPosition, 0);
+	Engine::Get()->GetRegistry()->regPhysics[AnchorID].body->SetTransform(screen.AnchorPosition, 0);
+}
+
+void System::Stage::Unload(const Screen& screen)
+{
+	for (int i = 0; i < screen.StaticGeometry.size(); i++)
+	{
+		Engine::Get()->DestroySolid(screen.StaticGeometryIDs[i]);
+	}
 }
 
 #pragma region PHYSICS
@@ -288,9 +307,10 @@ void System::Physics::Interpolate(Registry& reg, const double& alpha)
     
 }
 
-#pragma endregion PHYSICS
-
 void Component::Physics::Actor::b2BodyToInterpolation(b2Body*& body)
 {
     PreviousPosition = body->GetPosition();
 }
+
+#pragma endregion PHYSICS
+

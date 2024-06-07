@@ -68,7 +68,7 @@ bool Engine::Initialize(std::string title, const unsigned int& width, const unsi
     RegisterActor(b2Vec2(1.2f, 4), b2Vec2(0.5f, 0.5f), 0, 12, 1, 0.1f);
     
     GraphicsSystem.LoadFromFile(1 , "../../res/img/Solid_red.png");
-    Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.65f), "../../res/img/anim_test.png");
+    Player = RegisterPlayer(b2Vec2(0, 0), b2Vec2(0.45f, 0.65f), "../../res/img/player_anim.png");
 
     return true;
 }
@@ -102,6 +102,15 @@ std::size_t Engine::CreateEntity()
     return Entities;
 }
 
+void Engine::DestroyEntity()
+{
+    static std::size_t Entities;
+    --Entities;
+
+    MaxEntities = Entities;
+}
+
+
 std::size_t Engine::GetMaxEntity()
 {
     return MaxEntities;
@@ -117,6 +126,11 @@ Registry* Engine::GetRegistry()
     return &EngineRegistry;
 }
 
+void Engine::PollEvents()
+{
+    KeyboardInput.Poll();
+}
+
 void Engine::Update()
 {
     LastTick = CurrentTick;
@@ -129,13 +143,28 @@ void Engine::Update()
     
     PhysicsSystem.Update(Dt);
     
-    PlayerSystem.Update(Player, EngineRegistry, 0, PhysicsSystem.GetWorld(), PhysicsDebugger);
+    PlayerSystem.Update(Player, EngineRegistry);
     GraphicsSystem.Update(EngineRegistry);
     
 
     FrameCount++;
 }
 
+void Engine::Render()
+{   
+    SDL_SetRenderDrawColor(Renderer, 24, 24, 24, 0xFF);
+    SDL_RenderClear(Renderer);
+    PhysicsDebugger.DrawGridline(40);
+    PhysicsDebugger.DrawCartesianAxis();
+    PhysicsSystem.World->DebugDraw();
+    GraphicsSystem.Render(EngineRegistry);
+    RenderText(b2Vec2(10, 10), DisplayFPS.str(), Resources.fontPlayFair, SDL_Color(255, 255, 255, 255), 0, 0, SDL_FLIP_NONE);
+
+
+    SDL_RenderPresent(Renderer);
+}
+
+#pragma region ECS
 std::size_t Engine::RegisterSolid(const b2Vec2& position, const b2Vec2& dimensions)
 {
     //Box2D Initialization
@@ -234,16 +263,16 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
 
     FixturePlayer = bodyPlayer->CreateFixture(&fixtGroundCheck);
 
-    GraphicsSystem.LoadSpriteSheetFromFile(Player, spritePath.c_str(), 4, 100, 50, 2);
+    GraphicsSystem.LoadSpriteSheetFromFile(Player, spritePath.c_str(), 9, 46, 48, 8);
     int width, height;
     SDL_QueryTexture(GraphicsSystem.GetTexturePtr(Player), 0, 0, &width, &height);
 
-    EngineRegistry.regGraphics[Player].TextureDimensions = b2Vec2(width, height);
+    EngineRegistry.regGraphics[Player].TextureDimensions = b2Vec2(48 * 2.2, 48 * 2.2);
     EngineRegistry.regGraphics[Player].Animated = true;
     EngineRegistry.regGraphics[Player].AnimationType = Animation::PLAYER_WALK;
-    EngineRegistry.regGraphics[Player].FrameCount = 4;
+    EngineRegistry.regGraphics[Player].FrameCount = 8;
     EngineRegistry.regGraphics[Player].CurrentFrame = 0;
-    EngineRegistry.regGraphics[Player].Delay = 100;
+    EngineRegistry.regGraphics[Player].Delay = 110;
     EngineRegistry.regPhysics[Player].body = bodyPlayer;
     EngineRegistry.regActor[Player].PreviousPosition = b2Vec2(position.x, position.y);
     EngineRegistry.regPlayer[Player].MoveState = PlayerMoveX::STOP;
@@ -252,28 +281,15 @@ std::size_t Engine::RegisterPlayer(const b2Vec2& position, const b2Vec2& dimensi
     return Player;
 }
 
-void Engine::PollEvents()
+void Engine::DestroySolid(const std::size_t& solid)
 {
-    KeyboardInput.Poll();
-    InputSystem.Listen(EngineRegistry, Player);
+    PhysicsSystem.World->DestroyBody(EngineRegistry.regPhysics[solid].body);
+    EngineRegistry.regPhysics.erase(solid);
+    EngineRegistry.regUser.erase(solid);
+    DestroyEntity();
 }
 
-void Engine::Render()
-{   
-    SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 0xFF);
-    SDL_RenderClear(Renderer);
-
-    GraphicsSystem.Render(EngineRegistry);
-
-    PhysicsDebugger.DrawGridline(40);
-    PhysicsDebugger.DrawCartesianAxis();
-    PhysicsSystem.World->DebugDraw();
-    RenderText(b2Vec2(10, 10), DisplayFPS.str(), Resources.fontPlayFair, SDL_Color(255, 255, 255, 255), 0, 0, SDL_FLIP_NONE);
-
-
-    SDL_RenderPresent(Renderer);
-}
-
+#pragma endregion ECS
 
 b2Vec2 Engine::SDLBox2D(const b2Vec2& vec2)
 {
